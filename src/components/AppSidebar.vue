@@ -61,7 +61,7 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
   align-items: center;
   gap: $space-sm;
   padding: $space-sm $space-lg;
-  font-size: $font-size-sm;
+  font-size: $font-size-md;
   color: $gray-600;
   cursor: pointer;
   transition: all $transition-fast;
@@ -82,10 +82,11 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
   }
 
   &.active {
-    background: $primary-light;
-    color: $primary;
+    background: $primary-apptabs;
+    color: $white;
     font-weight: $font-weight-semibold;
     border-left-color: $primary;
+    
 
     .collapsed & {
       border-left-color: transparent;

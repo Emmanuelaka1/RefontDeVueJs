@@ -6,10 +6,13 @@
       :data-testid="`section-header-${sectionId}`"
       @click="$emit('toggle')"
     >
-      <i
-        class="pi chevron"
-        :class="expanded ? 'pi-chevron-down' : 'pi-chevron-right'"
-      />
+      <div class="chevron-wrapper">
+        <img
+          class="chevron"
+          :src="expanded ? collapseIcon : expandIcon"
+          alt=""
+        />
+      </div>
       <span class="header-line" />
       <h3 class="header-title">{{ title }}</h3>
       <span class="header-line" />
@@ -29,6 +32,9 @@
 </template>
 
 <script setup lang="ts">
+import collapseIcon from '@/assets/icons/collapse.svg'
+import expandIcon from '@/assets/icons/expand.svg'
+
 defineProps<{
   title: string
   sectionId: string
@@ -42,16 +48,13 @@ defineEmits<{
 
 <style scoped lang="scss">
 .collapsible-section {
-  background: $white;
-  border: 1px solid $gray-300;
-  border-radius: $border-radius;
-  margin-bottom: $space-md;
+  margin-bottom: $space-xs;
 }
 
 .section-header {
   display: flex;
   align-items: center;
-  gap: $space-sm;
+  gap: 0;
   padding: $space-sm $space-lg;
   cursor: pointer;
   user-select: none;
@@ -63,17 +66,34 @@ defineEmits<{
   }
 }
 
-.chevron {
-  font-size: 12px;
-  color: $primary;
-  transition: transform $transition-base;
+.chevron-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 25px;
+  height: 25px;
+  background: $gray-200;
+  border-radius: $border-radius-sm;
   flex-shrink: 0;
 }
 
+.chevron {
+  width: 12px;
+  height: 12px;
+}
+
 .header-line {
-  flex: 1;
-  height: 1px;
-  background: $gray-300;
+  height: 3px;
+  background: $gray-900;
+
+  &:first-of-type {
+    width: 50px;
+    flex-shrink: 0;
+  }
+
+  &:last-of-type {
+    flex: 1;
+  }
 }
 
 .header-title {
@@ -83,11 +103,11 @@ defineEmits<{
   text-transform: uppercase;
   letter-spacing: 0.4px;
   white-space: nowrap;
-  padding: 0 $space-xs;
+  padding: 0 $space-sm;
 }
 
 .section-body {
-  padding: $space-md $space-xl $space-lg;
+  padding: $space-md $space-lg $space-lg;
 }
 
 // Transition

@@ -30,7 +30,7 @@ const { tabs, activeTabId, navigateToTab } = useNavigation()
 
 .tab-item {
   padding: $space-sm $space-xl;
-  font-size: $font-size-sm;
+  font-size: $font-size-md;
   font-weight: $font-weight-medium;
   font-family: inherit;
   color: $gray-600;
@@ -48,10 +48,10 @@ const { tabs, activeTabId, navigateToTab } = useNavigation()
   }
 
   &.active {
-    color: $primary;
+    color: $white;
     font-weight: $font-weight-semibold;
-    background: $white;
-    border-color: $primary;
+    background: $primary-apptabs;
+    border-color: $gray-900;
     border-bottom-color: transparent;
   }
 }
