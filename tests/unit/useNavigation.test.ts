@@ -3,7 +3,7 @@ import { setActivePinia, createPinia } from 'pinia'
 
 // Mock vue-router
 const mockPush = vi.fn()
-const mockRoute = { meta: { tabId: 'consultation' } }
+const mockRoute = { meta: { tabId: 'donnees-generales' } }
 
 vi.mock('vue-router', () => ({
   useRoute: () => mockRoute,
@@ -18,9 +18,9 @@ describe('useNavigation', () => {
     mockPush.mockClear()
   })
 
-  it('devrait retourner 5 onglets', () => {
+  it('devrait retourner 4 onglets', () => {
     const { tabs } = useNavigation()
-    expect(tabs).toHaveLength(5)
+    expect(tabs).toHaveLength(4)
   })
 
   it('devrait avoir les bons labels d\'onglets', () => {
@@ -28,42 +28,42 @@ describe('useNavigation', () => {
     const labels = tabs.map((t) => t.label)
 
     expect(labels).toEqual([
-      'Consultation',
-      'Données détaillées',
-      'Données comptables',
-      'Préavis',
-      'Recouvrement',
+      'Données générales',
+      'Données financières',
+      'Paliers',
+      'Domiciliation',
     ])
   })
 
-  it('devrait retourner 2 items de sidebar', () => {
+  it('devrait retourner 3 items de sidebar', () => {
     const { sidebarItems } = useNavigation()
-    expect(sidebarItems).toHaveLength(2)
+    expect(sidebarItems).toHaveLength(3)
   })
 
   it('devrait avoir les bons labels de sidebar', () => {
     const { sidebarItems } = useNavigation()
-    expect(sidebarItems[0].label).toBe('Dossier')
-    expect(sidebarItems[1].label).toBe('Nul entièrge')
+    expect(sidebarItems[0].label).toBe('Consultation')
+    expect(sidebarItems[1].label).toBe('Déblocage')
+    expect(sidebarItems[2].label).toBe('Rbt anticipés')
   })
 
   it('devrait naviguer au clic sur un onglet', () => {
     const { tabs, navigateToTab } = useNavigation()
 
     navigateToTab(tabs[2])
-    expect(mockPush).toHaveBeenCalledWith('/dossier/donnees-comptables')
+    expect(mockPush).toHaveBeenCalledWith('/consultation/paliers')
   })
 
   it('devrait avoir le bon onglet actif basé sur la route', () => {
     const { activeTabId } = useNavigation()
-    expect(activeTabId.value).toBe('consultation')
+    expect(activeTabId.value).toBe('donnees-generales')
   })
 
   it('chaque onglet devrait avoir une route valide', () => {
     const { tabs } = useNavigation()
 
     tabs.forEach((tab) => {
-      expect(tab.route).toMatch(/^\/dossier\//)
+      expect(tab.route).toMatch(/^\/consultation\//)
       expect(tab.id).toBeTruthy()
     })
   })

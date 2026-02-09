@@ -52,14 +52,18 @@ describe('CollapsibleSection', () => {
       slots: { default: '<div>Contenu</div>' },
     })
 
-    expect(expandedWrapper.find('.chevron').classes()).toContain('pi-chevron-down')
+    const expandedImg = expandedWrapper.find('.chevron')
+    expect(expandedImg.exists()).toBe(true)
+    expect(expandedImg.attributes('src')).toContain('collapse')
 
     const collapsedWrapper = mount(CollapsibleSection, {
       props: { ...defaultProps, expanded: false },
       slots: { default: '<div>Contenu</div>' },
     })
 
-    expect(collapsedWrapper.find('.chevron').classes()).toContain('pi-chevron-right')
+    const collapsedImg = collapsedWrapper.find('.chevron')
+    expect(collapsedImg.exists()).toBe(true)
+    expect(collapsedImg.attributes('src')).toContain('expand')
   })
 
   it('devrait avoir le bon data-testid', () => {
