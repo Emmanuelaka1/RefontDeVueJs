@@ -46,6 +46,6 @@ const store = usePretStore()
 .form-grid.three-cols {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: $space-sm $space-xxl;
+  gap: $space-md $space-xxl;
 }
 </style>

@@ -38,11 +38,11 @@ const { tabs, activeTabId, navigateToTab } = useNavigation()
   background: transparent;
   border: 1px solid $border-color;
   border-radius: $border-radius $border-radius 0 0;
-  transition: all $transition-fast;
+  transition: all $transition-base;
   white-space: nowrap;
   outline: none;
 
-  &:hover {
+  &:hover:not(.active) {
     background: $primary-light;
     color: $primary-dark;
   }

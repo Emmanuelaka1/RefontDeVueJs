@@ -68,6 +68,7 @@ const store = usePretStore()
   border: 2px solid $gray-900;
   border-top: none;
   border-radius: $border-radius-lg;
+  box-shadow: $shadow-sm;
 }
 
 .blue-bar {

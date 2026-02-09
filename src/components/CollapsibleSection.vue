@@ -48,7 +48,7 @@ defineEmits<{
 
 <style scoped lang="scss">
 .collapsible-section {
-  margin-bottom: $space-xs;
+  margin-bottom: $space-sm;
 }
 
 .section-header {
@@ -58,10 +58,15 @@ defineEmits<{
   padding: $space-sm $space-lg;
   cursor: pointer;
   user-select: none;
+  transition: background $transition-fast;
 
   &:hover {
     .header-title {
       color: $primary;
+    }
+
+    .chevron-wrapper {
+      background: $gray-300;
     }
   }
 }
@@ -75,6 +80,7 @@ defineEmits<{
   background: $gray-200;
   border-radius: $border-radius-sm;
   flex-shrink: 0;
+  transition: background $transition-fast;
 }
 
 .chevron {
@@ -101,13 +107,14 @@ defineEmits<{
   font-weight: $font-weight-bold;
   color: $gray-800;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
   white-space: nowrap;
   padding: 0 $space-sm;
+  transition: color $transition-fast;
 }
 
 .section-body {
-  padding: $space-md $space-lg $space-lg;
+  padding: $space-md $space-xl $space-lg;
 }
 
 // Transition

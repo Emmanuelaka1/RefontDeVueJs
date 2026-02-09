@@ -64,7 +64,7 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
   font-size: $font-size-md;
   color: $gray-600;
   cursor: pointer;
-  transition: all $transition-fast;
+  transition: all $transition-base;
   border-left: 3px solid transparent;
   white-space: nowrap;
   overflow: hidden;
@@ -86,7 +86,6 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
     color: $white;
     font-weight: $font-weight-semibold;
     border-left-color: $primary;
-    
 
     .collapsed & {
       border-left-color: transparent;

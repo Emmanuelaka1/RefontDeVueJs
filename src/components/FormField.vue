@@ -25,7 +25,7 @@ withDefaults(
   display: flex;
   flex-direction: column;
   gap: $space-xxs;
-  min-height: 28px;
+  min-height: 40px;
 
   &.empty {
     visibility: hidden;
@@ -34,18 +34,21 @@ withDefaults(
 
 .field-label {
   font-size: $font-size-base;
-  font-weight: $font-weight-normal;
-  color: $gray-700;
+  font-weight: $font-weight-medium;
+  color: $gray-600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .field-value {
-  background-color: $gray-200;
+  background: $white;
   font-size: $font-size-base;
   color: $gray-900;
-  min-height: 20px;
+  min-height: 24px;
+  padding: $space-xxs $space-sm;
+  border: 1px solid $gray-200;
+  border-radius: $border-radius-sm;
 }
 </style>
