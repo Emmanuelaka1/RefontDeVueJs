@@ -23,9 +23,9 @@ withDefaults(
 <style scoped lang="scss">
 .form-field {
   display: flex;
-  flex-direction: column;
-  gap: $space-xxs;
-  min-height: 40px;
+  align-items: center;
+  gap: $space-sm;
+  min-height: 32px;
 
   &.empty {
     visibility: hidden;
@@ -34,21 +34,22 @@ withDefaults(
 
 .field-label {
   font-size: $font-size-base;
-  font-weight: $font-weight-medium;
+  font-weight: $font-weight-bold;
   color: var(--text-label);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  width: 180px;
+  flex-shrink: 0;
   line-height: 1.3;
 }
 
 .field-value {
+  flex: 1;
   background: var(--bg-input);
   font-size: $font-size-base;
   color: var(--text-primary);
   min-height: 24px;
   padding: $space-xxs $space-sm;
-  border: 1px solid var(--border-light);
+  border: 1px solid rgba(59, 89, 152, 0.25);
   border-radius: $border-radius-sm;
 }
 </style>
