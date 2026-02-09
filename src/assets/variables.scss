@@ -1,0 +1,88 @@
+// ═══════════════════════════════════════
+// Design Tokens - Gestion des Prêts
+// ═══════════════════════════════════════
+
+// Couleurs principales
+$primary: #3b5998;
+$primary-dark: #2d4373;
+$primary-light: #e8edf5;
+$primary-active: #2c5cc5;
+$primary-ciel: #1db0ff;
+
+// Couleurs de statut
+$success: #0d7c3e;
+$success-light: #e6f4ec;
+$warning: #b45309;
+$warning-light: #fef3c7;
+$danger: #dc2626;
+$danger-light: #fee2e2;
+$info: #2563eb;
+$info-light: #dbeafe;
+
+// Couleurs neutres
+$white: #ffffff;
+$gray-50: #fafbfc;
+$gray-100: #f5f6f8;
+$gray-200: #e8eaed;
+$gray-300: #d1d5db;
+$gray-400: #9ca3af;
+$gray-500: #6b7280;
+$gray-600: #4b5563;
+$gray-700: #374151;
+$gray-800: #1f2937;
+$gray-900: #111827;
+
+// Dimensions
+$sidebar-width: 200px;
+$sidebar-collapsed-width: 48px;
+$toolbar-height: 46px;
+$header-height: 40px;
+$tab-height: 36px;
+$blue-bar-height: 7px;
+
+// Échelle d'espacement
+$space-xxs: 2px;
+$space-xs: 4px;
+$space-sm: 8px;
+$space-md: 12px;
+$space-lg: 16px;
+$space-xl: 20px;
+$space-xxl: 24px;
+$space-xxxl: 32px;
+
+// Typographie
+$font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+$font-size-xs: 11px;
+$font-size-sm: 12px;
+$font-size-base: 13px;
+$font-size-md: 14px;
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+// Bordures
+$border-color: #d1d5db;
+$border-color-light: #e5e7eb;
+$border-color-dark: #9ca3af;
+$border-radius: 4px;
+$border-radius-sm: 2px;
+$border-radius-lg: 6px;
+
+// Ombres
+$shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+$shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+$shadow-toolbar: 0 1px 3px rgba(0, 0, 0, 0.12);
+$shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+$shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+// Transitions
+$transition-fast: 0.1s ease;
+$transition-base: 0.2s ease;
+$transition-slow: 0.3s ease;
+
+// Z-index
+$z-sidebar: 10;
+$z-toolbar: 20;
+$z-dropdown: 30;
+$z-overlay: 40;

@@ -1,0 +1,14 @@
+{
+  // Configuration TypeScript dediee aux fichiers de config (vite, vitest, cypress)
+  // Separee de tsconfig.json car ces fichiers tournent dans Node.js, pas dans le navigateur
+  "compilerOptions": {
+    "composite": true,                     // Requis pour etre reference par tsconfig.json
+    "skipLibCheck": true,                  // Ignore la verification des .d.ts externes
+    "module": "ESNext",                    // Modules ES (les configs Vite utilisent import/export)
+    "moduleResolution": "bundler",         // Resolution compatible avec Vite
+    "allowSyntheticDefaultImports": true   // Autorise 'import x from ...' meme sans export default
+  },
+
+  // Seuls les fichiers de configuration sont concernes
+  "include": ["vite.config.ts", "vitest.config.ts", "cypress.config.ts"]
+}

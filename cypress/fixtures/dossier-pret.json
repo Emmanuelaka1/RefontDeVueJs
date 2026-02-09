@@ -1,0 +1,47 @@
+{
+  "id": "PRET-2024-001",
+  "donneesGenerales": {
+    "libellation": "Prêt Immobilier Résidence Principale",
+    "coEmprunteur": "Marie DUPONT",
+    "noPret": "PRE-2024-00123",
+    "noContratSourceGroupe": "GRP-2024-456",
+    "noContratSourcePret": "SRC-2024-789",
+    "dpr": "DPR-001",
+    "structure": "Agence Centrale Paris",
+    "codeFilial": "FIL-075",
+    "codeObjet": "OBJ-IMM",
+    "codeNature": "NAT-HAB"
+  },
+  "donneesPret": {
+    "montantPret": "250 000,00 €",
+    "dureePret": "240 mois",
+    "tauxContractualisation": "2,35%",
+    "tauxFranchise": "0,00%",
+    "tauxInteretPlein": "2,35%",
+    "periodicite": "Mensuelle",
+    "tauxAmortissement": "Constant",
+    "dureeAmortisation": "240 mois",
+    "montantAnticipe": "0,00 €",
+    "montantDisponible": "245 000,00 €",
+    "encoursRA": "198 543,21 €",
+    "encours": "198 543,21 €",
+    "teg": "2,89%"
+  },
+  "dates": {
+    "dateAcceptation": "15/01/2024",
+    "dateAtout": "20/01/2024",
+    "dateHistoriqueCredit": "01/02/2024",
+    "datePassageGestion": "01/03/2024",
+    "dateEffet": "01/03/2024",
+    "dateFondReserve": "15/01/2024",
+    "dateEffetRA": "01/03/2024",
+    "dateCredit": "28/02/2024",
+    "tauxGuich": "Guichet 01",
+    "dateHorsGestion": "",
+    "datePretImbrillAssurance": "01/03/2024",
+    "datePrixFixationPretCJ": "15/01/2024",
+    "dateAmortissementPrevisionnelle": "01/03/2044",
+    "dateAmortissementSuspendu": "",
+    "dateEcheancePrevisionnelle": "01/03/2044"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  // Configuration TypeScript principale pour le code source (src/) et les tests
+  // https://www.typescriptlang.org/tsconfig
+  "compilerOptions": {
+    "target": "ES2020",                    // Version JS cible en sortie
+    "module": "ESNext",                    // Systeme de modules (import/export ES)
+    "lib": ["ES2020", "DOM", "DOM.Iterable"], // APIs disponibles (JS + navigateur)
+    "skipLibCheck": true,                  // Ignore la verification des .d.ts externes (plus rapide)
+
+    // Resolution des modules compatible avec Vite
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,    // Autorise import './file.ts' avec extension
+    "resolveJsonModule": true,             // Autorise import data from './data.json'
+    "isolatedModules": true,               // Chaque fichier est compile independamment (requis par Vite)
+    "noEmit": true,                        // Pas de fichiers JS generes (Vite s'en charge)
+    "jsx": "preserve",                     // Laisse le JSX tel quel (transforme par Vite)
+
+    // Regles de verification strictes
+    "strict": true,                        // Active toutes les verifications strictes
+    "noUnusedLocals": true,                // Erreur si variable locale non utilisee
+    "noUnusedParameters": true,            // Erreur si parametre de fonction non utilise
+    "noFallthroughCasesInSwitch": true,    // Erreur si case sans break dans un switch
+
+    // Alias de chemin : '@/' pointe vers 'src/'
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+
+    // Types globaux disponibles sans import (describe, it, expect de Vitest)
+    "types": ["vitest/globals"]
+  },
+
+  // Fichiers inclus dans la compilation
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "tests/**/*.ts"
+  ],
+
+  // Reference vers la config separee pour les fichiers de config (vite, vitest, cypress)
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
