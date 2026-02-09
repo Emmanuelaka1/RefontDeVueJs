@@ -6,8 +6,8 @@
       </button>
       <span class="toolbar-divider" />
       <div class="toolbar-titles">
-        <span class="toolbar-title">SIGAC</span>
-        <span class="toolbar-subtitle">Gestion des Prêts</span>
+        <span class="toolbar-title">Template</span>
+        <span class="toolbar-subtitle">Refont Dev Vue3</span>
       </div>
     </div>
     <div class="toolbar-right">
