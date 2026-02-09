@@ -89,3 +89,25 @@ export interface SectionState {
   pret: boolean
   dates: boolean
 }
+
+/** Résumé d'un dossier pour les listes */
+export interface DossierResume {
+  id: string
+  noPret: string
+  emprunteur: string
+  montantPret: string
+  codeEtat: string
+}
+
+/** Réponse générique d'un appel service */
+export interface ServiceResponse<T> {
+  data: T
+  success: boolean
+  message?: string
+}
+
+/** Interface du service de prêts */
+export interface PretService {
+  getDossier(id: string): Promise<ServiceResponse<DossierPret>>
+  listerDossiers(): Promise<ServiceResponse<DossierResume[]>>
+}

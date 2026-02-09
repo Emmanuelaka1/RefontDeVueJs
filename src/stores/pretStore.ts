@@ -8,6 +8,7 @@ import type {
   SectionState,
   UserInfo,
 } from '@/types'
+import { getPretService } from '@/services/pretService'
 
 /**
  * Store principal — Gestion des dossiers de prêts
@@ -119,14 +120,24 @@ export const usePretStore = defineStore('pret', () => {
     sections.dates = false
   }
 
+  function appliquerDossier(dossier: DossierPret) {
+    dossierCourant.value = dossier
+    Object.assign(donneesGenerales, dossier.donneesGenerales)
+    Object.assign(donneesPret, dossier.donneesPret)
+    Object.assign(datesPret, dossier.dates)
+  }
+
   async function chargerDossier(id: string) {
     loading.value = true
     error.value = null
     try {
-      // TODO: Appel API réel
-      // const response = await api.getDossier(id)
-      // dossierCourant.value = response.data
-      console.log(`Chargement du dossier ${id}`)
+      const service = await getPretService()
+      const response = await service.getDossier(id)
+      if (response.success) {
+        appliquerDossier(response.data)
+      } else {
+        error.value = response.message || 'Erreur lors du chargement'
+      }
     } catch (e) {
       error.value = 'Erreur lors du chargement du dossier'
       console.error(e)
@@ -169,6 +180,7 @@ export const usePretStore = defineStore('pret', () => {
     toggleDarkMode,
     expandAllSections,
     collapseAllSections,
+    appliquerDossier,
     chargerDossier,
     resetFormulaire,
   }

@@ -113,6 +113,28 @@ describe('pretStore', () => {
     })
   })
 
+  // ── chargerDossier ──
+  describe('chargerDossier', () => {
+    it('devrait remplir les champs réactifs avec les données mock', async () => {
+      await store.chargerDossier('DOSS-2024-001')
+
+      expect(store.dossierCourant).not.toBeNull()
+      expect(store.donneesGenerales.emprunteur).toBe('MARTIN Jean-Pierre')
+      expect(store.donneesPret.montantPret).toBe('250 000,00 €')
+      expect(store.datesPret.dateAcceptation).toBe('15/01/2024')
+      expect(store.loading).toBe(false)
+      expect(store.error).toBeNull()
+    })
+
+    it('devrait positionner l\'erreur si ID introuvable', async () => {
+      await store.chargerDossier('INEXISTANT')
+
+      expect(store.error).toBeTruthy()
+      expect(store.dossierCourant).toBeNull()
+      expect(store.loading).toBe(false)
+    })
+  })
+
   // ── resetFormulaire ──
   describe('resetFormulaire', () => {
     it('devrait vider toutes les données générales', () => {
@@ -140,6 +162,17 @@ describe('pretStore', () => {
 
       store.resetFormulaire()
 
+      expect(store.datesPret.dateAcceptation).toBe('')
+    })
+
+    it('devrait vider les données après un chargement', async () => {
+      await store.chargerDossier('DOSS-2024-001')
+      expect(store.donneesGenerales.emprunteur).toBe('MARTIN Jean-Pierre')
+
+      store.resetFormulaire()
+
+      expect(store.donneesGenerales.emprunteur).toBe('')
+      expect(store.donneesPret.montantPret).toBe('')
       expect(store.datesPret.dateAcceptation).toBe('')
     })
   })
