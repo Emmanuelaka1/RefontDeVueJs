@@ -17,6 +17,7 @@ Guide pas a pas de la configuration du projet Vue 3 + TypeScript + Vite.
 9. [Point d'entree de l'application](#9-point-dentree-de-lapplication---srcmaints)
 10. [Scripts disponibles](#10-scripts-disponibles)
 11. [Structure du projet](#11-structure-du-projet)
+12. [Integration du Dark Mode](#12-integration-du-dark-mode)
 
 ---
 
@@ -571,3 +572,597 @@ RefontDeVueJs/
     ├── fixtures/               # Donnees de test
     └── support/                # Commandes custom Cypress
 ```
+
+---
+
+## 12. Integration du Dark Mode
+
+Guide complet, etape par etape, pour integrer un dark mode dans un projet Vue 3 + SCSS existant. Cette approche repose sur des **CSS custom properties** (variables CSS) qui changent de valeur quand la classe `dark-mode` est ajoutee sur `<html>`.
+
+### Sommaire du chapitre
+
+- [12.1 Principe architectural](#121---principe-architectural)
+- [12.2 Etape 1 : Ajouter l'etat dans le store Pinia](#122---etape-1--ajouter-letat-dans-le-store-pinia)
+- [12.3 Etape 2 : Creer le watcher dans App.vue](#123---etape-2--creer-le-watcher-dans-appvue)
+- [12.4 Etape 3 : Creer le fichier dark-theme.scss](#124---etape-3--creer-le-fichier-dark-themescss)
+- [12.5 Etape 4 : Importer dans global.scss et ajouter la transition](#125---etape-4--importer-dans-globalscss-et-ajouter-la-transition)
+- [12.6 Etape 5 : Ajouter le bouton de bascule dans la toolbar](#126---etape-5--ajouter-le-bouton-de-bascule-dans-la-toolbar)
+- [12.7 Etape 6 : Migrer les composants vers var()](#127---etape-6--migrer-les-composants-vers-var)
+- [12.8 Piege a eviter : specificite des scoped styles](#128---piege-a-eviter--specificite-des-scoped-styles)
+- [12.9 Reference complete des variables CSS](#129---reference-complete-des-variables-css)
+- [12.10 Checklist de verification](#1210---checklist-de-verification)
+- [12.11 Ajouter de nouvelles variables](#1211---ajouter-de-nouvelles-variables)
+
+---
+
+### 12.1 - Principe architectural
+
+Le dark mode fonctionne en 3 couches :
+
+```
+┌──────────────────────────────────────────────────────┐
+│  1. Store Pinia (pretStore.ts)                       │
+│     darkMode: ref<boolean>                           │
+│     toggleDarkMode()                                 │
+├──────────────────────────────────────────────────────┤
+│  2. Watcher dans App.vue                             │
+│     document.documentElement.classList.toggle(        │
+│       'dark-mode', isDark                            │
+│     )                                                │
+├──────────────────────────────────────────────────────┤
+│  3. CSS Custom Properties (dark-theme.scss)          │
+│     :root          { --bg-body: #f5f6f8; }  (light) │
+│     html.dark-mode { --bg-body: #0f172a; }  (dark)  │
+├──────────────────────────────────────────────────────┤
+│  4. Composants Vue                                   │
+│     background: var(--bg-body);                      │
+│     (valeur resolue automatiquement selon le mode)   │
+└──────────────────────────────────────────────────────┘
+```
+
+**Pourquoi des CSS custom properties et pas du SCSS conditionnel ?**
+
+| Approche | Avantage | Inconvenient |
+|----------|----------|-------------|
+| SCSS `@if` / mixin | Familier | Genere du CSS statique, ne change pas au runtime |
+| Classes CSS dupliquees (`.dark .sidebar`) | Simple | Specificite difficile a gerer avec les scoped styles |
+| **CSS custom properties (`var()`)** | **Change au runtime, cascade naturelle, compatible scoped styles** | Necessite de definir les variables en amont |
+
+---
+
+### 12.2 - Etape 1 : Ajouter l'etat dans le store Pinia
+
+Dans le store principal (`src/stores/pretStore.ts`), ajouter un `ref` booleen et une action de bascule.
+
+```ts
+// src/stores/pretStore.ts
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+
+export const usePretStore = defineStore('pret', () => {
+  // ... autres etats ...
+
+  const darkMode = ref<boolean>(false)
+
+  function toggleDarkMode() {
+    darkMode.value = !darkMode.value
+  }
+
+  return {
+    // ... autres exports ...
+    darkMode,
+    toggleDarkMode,
+  }
+})
+```
+
+| Element | Role |
+|---------|------|
+| `darkMode` | Booleen reactif : `false` = light, `true` = dark |
+| `toggleDarkMode()` | Inverse la valeur de `darkMode` |
+
+> **Optionnel** : Pour persister le choix de l'utilisateur, sauvegarder dans `localStorage` :
+> ```ts
+> const darkMode = ref<boolean>(localStorage.getItem('dark-mode') === 'true')
+>
+> function toggleDarkMode() {
+>   darkMode.value = !darkMode.value
+>   localStorage.setItem('dark-mode', String(darkMode.value))
+> }
+> ```
+
+---
+
+### 12.3 - Etape 2 : Creer le watcher dans App.vue
+
+Le composant racine `App.vue` observe `darkMode` et bascule la classe CSS sur l'element `<html>`.
+
+```vue
+<!-- src/App.vue -->
+<template>
+  <router-view />
+</template>
+
+<script setup lang="ts">
+import { watch } from 'vue'
+import { usePretStore } from '@/stores/pretStore'
+
+const store = usePretStore()
+
+// Dark mode : bascule la classe sur <html> pour activer les CSS custom properties
+watch(() => store.darkMode, (isDark) => {
+  document.documentElement.classList.toggle('dark-mode', isDark)
+}, { immediate: true })
+</script>
+```
+
+**Detail du fonctionnement :**
+
+| Etape | Ce qui se passe |
+|-------|-----------------|
+| 1 | L'utilisateur clique sur le bouton dark mode |
+| 2 | `store.toggleDarkMode()` passe `darkMode` a `true` |
+| 3 | Le `watch` detecte le changement |
+| 4 | `classList.toggle('dark-mode', true)` ajoute la classe sur `<html>` |
+| 5 | Le selecteur CSS `html.dark-mode` s'active |
+| 6 | Toutes les CSS custom properties sont redefinies |
+| 7 | Tous les `var(--xxx)` dans les composants sont resolus avec les nouvelles valeurs |
+
+> **Pourquoi `{ immediate: true }` ?** Pour appliquer le bon etat des l'initialisation (utile si le choix est persiste dans `localStorage`).
+
+---
+
+### 12.4 - Etape 3 : Creer le fichier dark-theme.scss
+
+Creer le fichier `src/assets/dark-theme.scss`. Ce fichier definit toutes les CSS custom properties dans `:root` (mode light) et les redefinit dans `html.dark-mode` (mode dark).
+
+**Important** : Ce fichier est un fichier SCSS (pas CSS pur) car il utilise les variables SCSS (`$primary`, `$gray-300`, etc.) definies dans `variables.scss` qui est injecte automatiquement par Vite.
+
+```scss
+// src/assets/dark-theme.scss
+// ═══════════════════════════════════════
+// Dark Theme - CSS Custom Properties
+// ═══════════════════════════════════════
+
+// ── MODE LIGHT (valeurs par defaut) ──
+:root {
+  // Backgrounds
+  --bg-body: #{$gray-100};          // Fond de la page
+  --bg-surface: #{$white};          // Fond des cartes/panneaux
+  --bg-content: #{$gray-100};       // Fond de la zone de contenu
+  --bg-elevated: #{$gray-50};       // Fond legerement sureleve
+  --bg-input: #{$white};            // Fond des champs de formulaire
+  --bg-chevron: #{$gray-200};       // Fond des icones chevron
+
+  // Text
+  --text-primary: #{$gray-800};     // Texte principal
+  --text-secondary: #{$gray-600};   // Texte secondaire
+  --text-muted: #{$gray-500};       // Texte attenue
+  --text-label: #{$gray-600};       // Labels de formulaire
+
+  // Borders
+  --border-main: #{$gray-300};      // Bordures principales
+  --border-light: #{$gray-200};     // Bordures legeres
+  --border-card: #{$gray-900};      // Bordures de cartes
+
+  // Components
+  --toolbar-bg: #{$primary};        // Fond de la toolbar
+  --toolbar-shadow: #{$shadow-toolbar};
+  --sidebar-bg: #{$white};          // Fond de la sidebar
+  --tabs-bg: #{$white};             // Fond de la barre d'onglets
+  --section-line: #{$gray-900};     // Lignes des sections repliables
+  --content-shadow: #{$shadow-sm};
+  --blue-bar-bg: #{$primary-ciel};  // Barre bleue decorative
+
+  // Hover (etats survol)
+  --hover-bg: #{$primary-light};    // Fond au survol
+  --hover-text: #{$primary-dark};   // Texte au survol
+
+  // Sidebar
+  --sidebar-border: #{$primary-ciel};       // Bordure droite sidebar
+  --sidebar-active-bg: #{$primary-apptabs}; // Fond element actif
+  --sidebar-active-text: #{$white};         // Texte element actif
+
+  // Tabs
+  --tab-active-bg: #{$primary-apptabs};     // Fond onglet actif
+  --tab-active-text: #{$white};             // Texte onglet actif
+  --tab-active-border: #{$gray-900};        // Bordure onglet actif
+
+  // Badges
+  --badge-info-bg: #{$info-light};          // Fond badge info
+  --badge-info-text: #{$info};              // Texte badge info
+  --badge-warn-bg: #{$warning-light};       // Fond badge warning
+  --badge-warn-text: #{$warning};           // Texte badge warning
+}
+
+// ── MODE DARK ──
+html.dark-mode {
+  // Backgrounds — palette Slate (Tailwind)
+  --bg-body: #0f172a;              // slate-900
+  --bg-surface: #1e293b;           // slate-800
+  --bg-content: #1e293b;
+  --bg-elevated: #273548;          // entre slate-800 et slate-700
+  --bg-input: #273548;
+  --bg-chevron: #{$gray-100};
+
+  // Text
+  --text-primary: #e2e8f0;         // slate-200
+  --text-secondary: #94a3b8;       // slate-400
+  --text-muted: #64748b;           // slate-500
+  --text-label: #94a3b8;
+
+  // Borders
+  --border-main: #475569;          // slate-600
+  --border-light: #334155;         // slate-700
+  --border-card: #475569;
+
+  // Components
+  --toolbar-bg: #0f172a;           // Meme fond que la page (effet immersif)
+  --toolbar-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  --sidebar-bg: #1e293b;
+  --tabs-bg: #1e293b;
+  --section-line: #64748b;
+  --content-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --blue-bar-bg: #{darken($primary-ciel, 10%)};
+
+  // Hover — bleu clair semi-transparent
+  --hover-bg: rgba(96, 165, 250, 0.15);   // blue-400 a 15%
+  --hover-text: #60a5fa;                   // blue-400
+
+  // Sidebar — fond subtil au lieu de couleur opaque
+  --sidebar-border: rgba(29, 176, 255, 0.4);
+  --sidebar-active-bg: rgba(110, 204, 241, 0.2);
+  --sidebar-active-text: #93c5fd;          // blue-300
+
+  // Tabs
+  --tab-active-bg: rgba(110, 204, 241, 0.2);
+  --tab-active-text: #e2e8f0;             // slate-200
+  --tab-active-border: #60a5fa;           // blue-400
+
+  // Badges — fond rgba pour lisibilite sur fond sombre
+  --badge-info-bg: rgba(37, 99, 235, 0.2);  // blue-600 a 20%
+  --badge-info-text: #60a5fa;                // blue-400
+  --badge-warn-bg: rgba(180, 83, 9, 0.2);   // amber-700 a 20%
+  --badge-warn-text: #fbbf24;                // amber-400
+
+  // Appliquer le fond et texte sur <html> directement
+  background: var(--bg-body);
+  color: var(--text-primary);
+}
+```
+
+**Points importants :**
+
+| Point | Explication |
+|-------|-------------|
+| `#{$variable}` | Interpolation SCSS : insere la valeur de la variable SCSS dans la CSS custom property |
+| `rgba(...)` en dark | Les fonds semi-transparents s'integrent mieux sur fond sombre qu'une couleur opaque |
+| `background` / `color` sur `html.dark-mode` | Force le fond et le texte de base quand on bascule en dark |
+| Palette Slate | Palette de gris bleutee de Tailwind, adaptee au dark mode |
+
+---
+
+### 12.5 - Etape 4 : Importer dans global.scss et ajouter la transition
+
+Modifier `src/assets/global.scss` pour importer le fichier dark-theme et ajouter une transition douce lors de la bascule.
+
+```scss
+// src/assets/global.scss
+@import './dark-theme';   // <-- Ajouter cet import en haut du fichier
+
+// ...
+
+html,
+body {
+  height: 100%;
+  font-family: $font-family;
+  font-size: $font-size-base;
+  color: var(--text-primary);
+  background: var(--bg-body);
+  transition: background-color 0.3s ease, color 0.3s ease;  // <-- Transition douce
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+```
+
+| Modification | Effet |
+|-------------|-------|
+| `@import './dark-theme'` | Charge les CSS custom properties definies dans `dark-theme.scss` |
+| `transition: background-color 0.3s ease, color 0.3s ease` | Le passage light/dark se fait en 0.3s au lieu d'un changement instantane |
+| `color: var(--text-primary)` | Le texte de base utilise la variable (deja en place) |
+| `background: var(--bg-body)` | Le fond de la page utilise la variable (deja en place) |
+
+> **Note** : La transition ne porte que sur `background-color` et `color`. Les composants internes changent instantanement, ce qui donne un effet propre sans decalage visible.
+
+---
+
+### 12.6 - Etape 5 : Ajouter le bouton de bascule dans la toolbar
+
+Dans `AppToolbar.vue`, ajouter un bouton qui affiche une lune (light) ou un soleil (dark).
+
+**Template** (dans `.toolbar-right`) :
+```html
+<button class="theme-toggle" @click="store.toggleDarkMode()">
+  <i class="pi" :class="store.darkMode ? 'pi-sun' : 'pi-moon'" />
+</button>
+```
+
+**Style** (scoped SCSS) :
+```scss
+.theme-toggle {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: $white;
+  font-size: 14px;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all $transition-fast;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+}
+```
+
+| Element | Detail |
+|---------|--------|
+| `pi-moon` / `pi-sun` | Icones PrimeIcons (deja installe dans le projet) |
+| `:class` dynamique | Affiche le soleil en dark (pour revenir au light) et la lune en light (pour passer au dark) |
+| `rgba(255,255,255,...)` | Couleurs blanches semi-transparentes : fonctionnent sur la toolbar quelque soit le mode |
+
+---
+
+### 12.7 - Etape 6 : Migrer les composants vers var()
+
+C'est l'etape la plus importante. Il faut remplacer les couleurs SCSS hardcodees dans les styles scoped des composants par des appels `var(--xxx)`.
+
+#### Methode generale
+
+Pour chaque composant, reperer les couleurs SCSS et les remplacer :
+
+```scss
+// ❌ AVANT (ne s'adapte pas au dark mode)
+.sidebar-item {
+  &:hover {
+    background: $primary-light;
+    color: $primary-dark;
+  }
+  &.active {
+    background: $primary-apptabs;
+    color: $white;
+  }
+}
+
+// ✅ APRES (s'adapte automatiquement)
+.sidebar-item {
+  &:hover {
+    background: var(--hover-bg);
+    color: var(--hover-text);
+  }
+  &.active {
+    background: var(--sidebar-active-bg);
+    color: var(--sidebar-active-text);
+  }
+}
+```
+
+#### Composants migres et correspondances exactes
+
+**AppSidebar.vue** — 3 modifications
+
+| Propriete CSS | Avant (SCSS) | Apres (var) |
+|--------------|-------------|------------|
+| `.app-sidebar` `border-right` | `$primary-ciel` | `var(--sidebar-border)` |
+| `.sidebar-item:hover` `background` | `$primary-light` | `var(--hover-bg)` |
+| `.sidebar-item:hover` `color` | `$primary-dark` | `var(--hover-text)` |
+| `.sidebar-item.active` `background` | `$primary-apptabs` | `var(--sidebar-active-bg)` |
+| `.sidebar-item.active` `color` | `$white` | `var(--sidebar-active-text)` |
+
+**AppTabs.vue** — 3 modifications
+
+| Propriete CSS | Avant (SCSS) | Apres (var) |
+|--------------|-------------|------------|
+| `.tab-item:hover` `background` | `$primary-light` | `var(--hover-bg)` |
+| `.tab-item:hover` `color` | `$primary-dark` | `var(--hover-text)` |
+| `.tab-item.active` `color` | `$white` | `var(--tab-active-text)` |
+| `.tab-item.active` `background` | `$primary-apptabs` | `var(--tab-active-bg)` |
+| `.tab-item.active` `border-color` | `var(--border-card)` | `var(--tab-active-border)` |
+
+**CollapsibleSection.vue** — 1 modification
+
+| Propriete CSS | Avant (SCSS) | Apres (var) |
+|--------------|-------------|------------|
+| `.section-header:hover .chevron-wrapper` `background` | `$gray-300` | `var(--hover-bg)` |
+
+**ConsultationView.vue** — 4 modifications
+
+| Propriete CSS | Avant (SCSS) | Apres (var) |
+|--------------|-------------|------------|
+| `.header-icon` `color` | `$primary` | `var(--hover-text)` |
+| `.header-icon` `background` | `$gray-100` | `var(--bg-elevated)` |
+| `.badge-status` `color` | `$info` | `var(--badge-info-text)` |
+| `.badge-status` `background` | `$gray-100` | `var(--badge-info-bg)` |
+| `.btn-action` `color` | `$gray-600` | `var(--text-secondary)` |
+| `.btn-action` `background` | `$gray-100` | `var(--bg-surface)` |
+| `.btn-action` `border` | `$gray-300` | `var(--border-main)` |
+| `.btn-action:hover` `color` | `$primary` | `var(--hover-text)` |
+| `.btn-action:hover` `border-color` | `$primary` | `var(--hover-text)` |
+| `.btn-action:hover` `background` | `$primary-light` | `var(--hover-bg)` |
+
+**Vues placeholder (5 fichiers)** — 1 modification par fichier
+
+Fichiers concernes : `RbtAnticipesView.vue`, `DeblocageView.vue`, `DomiciliationView.vue`, `PaliersView.vue`, `DonneesFinancieresView.vue`.
+
+| Propriete CSS | Avant (SCSS) | Apres (var) |
+|--------------|-------------|------------|
+| `.badge-coming` `color` | `$warning` | `var(--badge-warn-text)` |
+| `.badge-coming` `background` | `$warning-light` | `var(--badge-warn-bg)` |
+
+---
+
+### 12.8 - Piege a eviter : specificite des scoped styles
+
+**Probleme** : Vue scoped styles ajoutent un attribut `[data-v-xxx]` sur chaque selecteur CSS. Cet attribut a une specificite de (0,1,0) qui s'ajoute a celle du selecteur :
+
+```css
+/* Vue genere ceci : */
+.sidebar-item[data-v-abc123] { background: blue; }   /* specificite : 0,2,0 */
+
+/* Un override global dark mode : */
+html.dark-mode .sidebar-item { background: red; }     /* specificite : 0,1,1 */
+```
+
+Le scoped style (0,2,0) **gagne** sur le dark mode (0,1,1). Le dark mode n'a aucun effet.
+
+**Solution** : Utiliser `var()` dans les styles scoped. La variable est resolue au runtime et prend la valeur definie par le selecteur `html.dark-mode` ou `:root`, sans conflit de specificite.
+
+```scss
+// Dans un composant scoped :
+.sidebar-item {
+  background: var(--hover-bg);   // Resolu dynamiquement
+  // Vue genere : .sidebar-item[data-v-xxx] { background: var(--hover-bg); }
+  // La valeur de --hover-bg est determinee par :root ou html.dark-mode
+  // => Pas de conflit de specificite !
+}
+```
+
+**Regle d'or** : Ne jamais utiliser de couleur SCSS hardcodee (`$gray-300`, `$primary`, etc.) dans un style scoped pour une propriete qui doit changer en dark mode. Toujours passer par `var(--xxx)`.
+
+---
+
+### 12.9 - Reference complete des variables CSS
+
+Tableau exhaustif de toutes les CSS custom properties disponibles :
+
+#### Backgrounds
+
+| Variable | Light | Dark | Usage |
+|----------|-------|------|-------|
+| `--bg-body` | `#f5f6f8` | `#0f172a` | Fond de la page |
+| `--bg-surface` | `#ffffff` | `#1e293b` | Fond des cartes, panneaux |
+| `--bg-content` | `#f5f6f8` | `#1e293b` | Zone de contenu principale |
+| `--bg-elevated` | `#fafbfc` | `#273548` | Elements sureleves |
+| `--bg-input` | `#ffffff` | `#273548` | Champs de formulaire |
+| `--bg-chevron` | `#e8eaed` | `#f5f6f8` | Fond des icones chevron |
+
+#### Texte
+
+| Variable | Light | Dark | Usage |
+|----------|-------|------|-------|
+| `--text-primary` | `#1f2937` | `#e2e8f0` | Texte principal |
+| `--text-secondary` | `#4b5563` | `#94a3b8` | Texte secondaire |
+| `--text-muted` | `#6b7280` | `#64748b` | Texte attenue |
+| `--text-label` | `#4b5563` | `#94a3b8` | Labels |
+
+#### Bordures
+
+| Variable | Light | Dark | Usage |
+|----------|-------|------|-------|
+| `--border-main` | `#d1d5db` | `#475569` | Bordures principales |
+| `--border-light` | `#e8eaed` | `#334155` | Bordures legeres |
+| `--border-card` | `#111827` | `#475569` | Bordures de cartes |
+
+#### Composants
+
+| Variable | Light | Dark | Usage |
+|----------|-------|------|-------|
+| `--toolbar-bg` | `#3b5998` | `#0f172a` | Fond toolbar |
+| `--toolbar-shadow` | `0 1px 3px ...` | `0 1px 4px ...` | Ombre toolbar |
+| `--sidebar-bg` | `#ffffff` | `#1e293b` | Fond sidebar |
+| `--tabs-bg` | `#ffffff` | `#1e293b` | Fond onglets |
+| `--section-line` | `#111827` | `#64748b` | Lignes de sections |
+| `--content-shadow` | `0 1px 2px ...` | `0 2px 4px ...` | Ombre contenu |
+| `--blue-bar-bg` | `#1db0ff` | assombri 10% | Barre decorative |
+
+#### Hover
+
+| Variable | Light | Dark | Usage |
+|----------|-------|------|-------|
+| `--hover-bg` | `#e8edf5` | `rgba(96,165,250,0.15)` | Fond au survol |
+| `--hover-text` | `#3e96b9` | `#60a5fa` | Texte au survol |
+
+#### Sidebar
+
+| Variable | Light | Dark | Usage |
+|----------|-------|------|-------|
+| `--sidebar-border` | `#1db0ff` | `rgba(29,176,255,0.4)` | Bordure droite |
+| `--sidebar-active-bg` | `#6eccf1` | `rgba(110,204,241,0.2)` | Fond element actif |
+| `--sidebar-active-text` | `#ffffff` | `#93c5fd` | Texte element actif |
+
+#### Tabs
+
+| Variable | Light | Dark | Usage |
+|----------|-------|------|-------|
+| `--tab-active-bg` | `#6eccf1` | `rgba(110,204,241,0.2)` | Fond onglet actif |
+| `--tab-active-text` | `#ffffff` | `#e2e8f0` | Texte onglet actif |
+| `--tab-active-border` | `#111827` | `#60a5fa` | Bordure onglet actif |
+
+#### Badges
+
+| Variable | Light | Dark | Usage |
+|----------|-------|------|-------|
+| `--badge-info-bg` | `#dbeafe` | `rgba(37,99,235,0.2)` | Fond badge info |
+| `--badge-info-text` | `#2563eb` | `#60a5fa` | Texte badge info |
+| `--badge-warn-bg` | `#fef3c7` | `rgba(180,83,9,0.2)` | Fond badge warning |
+| `--badge-warn-text` | `#b45309` | `#fbbf24` | Texte badge warning |
+
+---
+
+### 12.10 - Checklist de verification
+
+Apres avoir applique toutes les etapes, verifier les points suivants :
+
+| # | Verification | Comment tester |
+|---|-------------|----------------|
+| 1 | `npm run build` passe sans erreur | Lancer `npm run build` |
+| 2 | Toggle light/dark fonctionne | Cliquer sur le bouton lune/soleil dans la toolbar |
+| 3 | Transition douce (0.3s) | Le fond de la page change progressivement, pas instantanement |
+| 4 | Toolbar : fond sombre immersif | En dark, la toolbar a le meme fond que la page (#0f172a) |
+| 5 | Sidebar : hover bleu semi-transparent | Survoler un element de la sidebar en dark mode |
+| 6 | Sidebar : actif subtil | L'element actif a un fond `rgba` et non une couleur opaque |
+| 7 | Tabs : hover bleu semi-transparent | Survoler un onglet inactif en dark mode |
+| 8 | Tabs : actif avec bordure bleue | L'onglet actif a une bordure `#60a5fa` en dark |
+| 9 | Badges info lisibles | Le badge "Dossier en cours" est lisible dans les deux modes |
+| 10 | Badges warning lisibles | Les badges "A venir" sont lisibles dans les deux modes |
+| 11 | Boutons action lisibles | Les boutons "Tout ouvrir" / "Tout fermer" sont lisibles en dark |
+| 12 | Sections repliables : chevron hover | Le fond du chevron change au survol dans les deux modes |
+| 13 | Champs de formulaire | Les inputs ont un fond sombre et un texte clair en dark |
+| 14 | Scrollbars | Verifier que les scrollbars restent visibles dans les deux modes |
+
+---
+
+### 12.11 - Ajouter de nouvelles variables
+
+Pour ajouter une nouvelle couleur themeable a l'avenir, suivre ces 3 etapes :
+
+**Etape A** — Ajouter la variable dans `dark-theme.scss` :
+```scss
+:root {
+  --ma-nouvelle-var: #{$valeur-light};
+}
+html.dark-mode {
+  --ma-nouvelle-var: #valeur-dark;
+}
+```
+
+**Etape B** — Utiliser dans le composant :
+```scss
+// Dans le <style scoped> du composant
+.ma-classe {
+  color: var(--ma-nouvelle-var);
+}
+```
+
+**Etape C** — Verifier dans les deux modes :
+- `npm run dev`
+- Tester en light et en dark
+- `npm run build` pour verifier qu'il n'y a pas d'erreur
+
+> **Convention de nommage** : `--categorie-element-propriete`
+> Exemples : `--bg-body`, `--text-primary`, `--hover-bg`, `--badge-info-text`
