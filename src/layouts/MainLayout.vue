@@ -65,7 +65,7 @@ const store = usePretStore()
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 2px solid $gray-900;
+  border: 2px solid var(--border-card);
   border-top: none;
   border-radius: $border-radius-lg;
   box-shadow: $shadow-sm;
@@ -73,7 +73,7 @@ const store = usePretStore()
 
 .blue-bar {
   height: $blue-bar-height;
-  background: $primary-ciel;
+  background: var(--blue-bar-bg);
   flex-shrink: 0;
 }
 
@@ -81,7 +81,7 @@ const store = usePretStore()
   flex: 1;
   overflow-y: auto;
   padding: $space-xl $space-xxl;
-  background: $gray-100;
+  background: var(--bg-content);
 }
 
 // Fade transition

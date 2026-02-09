@@ -23,7 +23,7 @@ const { tabs, activeTabId, navigateToTab } = useNavigation()
 .app-tabs {
   display: flex;
   align-items: stretch;
-  background: $white;
+  background: var(--tabs-bg);
   padding: $space-sm $space-sm 0;
   gap: $space-xs;
 }
@@ -33,10 +33,10 @@ const { tabs, activeTabId, navigateToTab } = useNavigation()
   font-size: $font-size-md;
   font-weight: $font-weight-medium;
   font-family: inherit;
-  color: $gray-600;
+  color: var(--text-secondary);
   cursor: pointer;
   background: transparent;
-  border: 1px solid $border-color;
+  border: 1px solid var(--border-main);
   border-radius: $border-radius $border-radius 0 0;
   transition: all $transition-base;
   white-space: nowrap;
@@ -51,7 +51,7 @@ const { tabs, activeTabId, navigateToTab } = useNavigation()
     color: $white;
     font-weight: $font-weight-semibold;
     background: $primary-apptabs;
-    border-color: $gray-900;
+    border-color: var(--border-card);
     border-bottom-color: transparent;
   }
 }

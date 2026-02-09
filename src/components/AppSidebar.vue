@@ -30,7 +30,7 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
 .app-sidebar {
   width: $sidebar-width;
   min-width: $sidebar-width;
-  background: $white;
+  background: var(--sidebar-bg);
   border-right: 8px solid $primary-ciel;
   display: flex;
   flex-direction: column;
@@ -49,7 +49,7 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
 .sidebar-section-header {
   font-size: $font-size-xs;
   font-weight: $font-weight-semibold;
-  color: $gray-400;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: $space-sm $space-lg;
@@ -62,7 +62,7 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
   gap: $space-sm;
   padding: $space-sm $space-lg;
   font-size: $font-size-md;
-  color: $gray-600;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all $transition-base;
   border-left: 3px solid transparent;
@@ -95,7 +95,7 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
 }
 
 .sidebar-icon {
-  font-size: $font-size-md;
+  font-size: 18px;
   flex-shrink: 0;
 }
 

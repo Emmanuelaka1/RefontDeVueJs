@@ -35,7 +35,7 @@ withDefaults(
 .field-label {
   font-size: $font-size-base;
   font-weight: $font-weight-medium;
-  color: $gray-600;
+  color: var(--text-label);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -43,12 +43,12 @@ withDefaults(
 }
 
 .field-value {
-  background: $white;
+  background: var(--bg-input);
   font-size: $font-size-base;
-  color: $gray-900;
+  color: var(--text-primary);
   min-height: 24px;
   padding: $space-xxs $space-sm;
-  border: 1px solid $gray-200;
+  border: 1px solid var(--border-light);
   border-radius: $border-radius-sm;
 }
 </style>

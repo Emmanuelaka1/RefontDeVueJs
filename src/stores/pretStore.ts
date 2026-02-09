@@ -19,6 +19,7 @@ export const usePretStore = defineStore('pret', () => {
   const loading = ref<boolean>(false)
   const error = ref<string | null>(null)
   const sidebarCollapsed = ref<boolean>(false)
+  const darkMode = ref<boolean>(false)
   const currentUser = ref<UserInfo>({
     nom: 'Dupont',
     prenom: 'Jean',
@@ -102,6 +103,10 @@ export const usePretStore = defineStore('pret', () => {
     sidebarCollapsed.value = !sidebarCollapsed.value
   }
 
+  function toggleDarkMode() {
+    darkMode.value = !darkMode.value
+  }
+
   function expandAllSections() {
     sections.general = true
     sections.pret = true
@@ -154,12 +159,14 @@ export const usePretStore = defineStore('pret', () => {
     donneesPret,
     datesPret,
     sidebarCollapsed,
+    darkMode,
     currentUser,
     // Actions
     toggleSection,
     setActiveTab,
     setActiveSidebarItem,
     toggleSidebar,
+    toggleDarkMode,
     expandAllSections,
     collapseAllSections,
     chargerDossier,

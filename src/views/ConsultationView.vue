@@ -46,7 +46,7 @@ const store = usePretStore()
   justify-content: space-between;
   margin-bottom: $space-lg;
   padding-bottom: $space-md;
-  border-bottom: 1px solid $gray-200;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .view-header-left {
@@ -56,21 +56,28 @@ const store = usePretStore()
 }
 
 .header-icon {
-  font-size: 18px;
+  font-size: 14px;
   color: $primary;
+  background: $gray-100;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .view-title {
   font-size: $font-size-md;
   font-weight: $font-weight-semibold;
-  color: $gray-800;
+  color: var(--text-primary);
 }
 
 .badge-status {
   font-size: $font-size-xs;
   font-weight: $font-weight-medium;
   color: $info;
-  background: $info-light;
+  background: $gray-100;
   padding: 2px $space-sm;
   border-radius: $border-radius-sm;
 }
@@ -89,7 +96,7 @@ const store = usePretStore()
   font-family: inherit;
   font-weight: $font-weight-medium;
   color: $gray-600;
-  background: $white;
+  background: $gray-100;
   border: 1px solid $gray-300;
   border-radius: $border-radius;
   cursor: pointer;

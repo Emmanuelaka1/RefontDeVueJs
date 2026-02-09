@@ -44,20 +44,20 @@
 
 .placeholder-icon {
   font-size: 24px;
-  color: $gray-400;
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
 .placeholder-title {
   font-size: $font-size-md;
   font-weight: $font-weight-semibold;
-  color: $gray-800;
+  color: var(--text-primary);
   margin-bottom: $space-xs;
 }
 
 .placeholder-desc {
   font-size: $font-size-sm;
-  color: $gray-500;
+  color: var(--text-muted);
 }
 
 .badge-coming {
@@ -71,8 +71,8 @@
 }
 
 .placeholder-body {
-  background: $white;
-  border: 1px solid $gray-300;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-main);
   border-radius: $border-radius;
   padding: $space-lg;
 }
@@ -86,13 +86,13 @@
   gap: $space-md;
   margin-bottom: $space-md;
   padding-bottom: $space-sm;
-  border-bottom: 2px solid $gray-200;
+  border-bottom: 2px solid var(--border-light);
 }
 
 .skeleton-th {
   flex: 1;
   height: 12px;
-  background: $gray-200;
+  background: var(--bg-chevron);
   border-radius: $border-radius-sm;
 }
 
@@ -100,13 +100,13 @@
   display: flex;
   gap: $space-md;
   padding: $space-sm 0;
-  border-bottom: 1px solid $gray-100;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .skeleton-td {
   flex: 1;
   height: 10px;
-  background: $gray-100;
+  background: var(--bg-elevated);
   border-radius: $border-radius-sm;
 }
 </style>

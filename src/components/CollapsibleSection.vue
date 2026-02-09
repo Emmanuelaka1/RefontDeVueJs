@@ -77,7 +77,7 @@ defineEmits<{
   justify-content: center;
   width: 25px;
   height: 25px;
-  background: $gray-200;
+  background: var(--bg-chevron);
   border-radius: $border-radius-sm;
   flex-shrink: 0;
   transition: background $transition-fast;
@@ -90,7 +90,7 @@ defineEmits<{
 
 .header-line {
   height: 3px;
-  background: $gray-900;
+  background: var(--section-line);
 
   &:first-of-type {
     width: 50px;
@@ -105,7 +105,7 @@ defineEmits<{
 .header-title {
   font-size: $font-size-sm;
   font-weight: $font-weight-bold;
-  color: $gray-800;
+  color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;

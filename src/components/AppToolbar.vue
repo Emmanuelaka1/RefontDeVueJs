@@ -11,6 +11,10 @@
       </div>
     </div>
     <div class="toolbar-right">
+      <button class="theme-toggle" data-testid="dark-mode-toggle" @click="store.toggleDarkMode()">
+        <i class="pi" :class="store.darkMode ? 'pi-sun' : 'pi-moon'" />
+      </button>
+      <span class="toolbar-divider" />
       <span class="env-badge">DEV</span>
       <span class="toolbar-divider" />
       <span class="user-name">{{ store.currentUser.prenom }} {{ store.currentUser.nom }}</span>
@@ -29,14 +33,14 @@ const store = usePretStore()
 .app-toolbar {
   height: $toolbar-height;
   min-height: $toolbar-height;
-  background: $primary;
+  background: var(--toolbar-bg);
   color: $white;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 $space-md;
   flex-shrink: 0;
-  box-shadow: $shadow-toolbar;
+  box-shadow: var(--toolbar-shadow);
   z-index: $z-toolbar;
   position: relative;
 }
@@ -108,6 +112,26 @@ const store = usePretStore()
 
 .user-name {
   font-size: $font-size-sm;
+}
+
+.theme-toggle {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: $white;
+  font-size: 14px;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all $transition-fast;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
 }
 
 .user-avatar {
