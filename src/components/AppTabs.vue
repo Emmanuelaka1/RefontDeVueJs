@@ -43,15 +43,15 @@ const { tabs, activeTabId, navigateToTab } = useNavigation()
   outline: none;
 
   &:hover:not(.active) {
-    background: $primary-light;
-    color: $primary-dark;
+    background: var(--hover-bg);
+    color: var(--hover-text);
   }
 
   &.active {
-    color: $white;
+    color: var(--tab-active-text);
     font-weight: $font-weight-semibold;
-    background: $primary-apptabs;
-    border-color: var(--border-card);
+    background: var(--tab-active-bg);
+    border-color: var(--tab-active-border);
     border-bottom-color: transparent;
   }
 }

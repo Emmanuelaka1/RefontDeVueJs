@@ -30,6 +30,26 @@
   --section-line: #{$gray-900};
   --content-shadow: #{$shadow-sm};
   --blue-bar-bg: #{$primary-ciel};
+
+  // Hover
+  --hover-bg: #{$primary-light};
+  --hover-text: #{$primary-dark};
+
+  // Sidebar
+  --sidebar-border: #{$primary-ciel};
+  --sidebar-active-bg: #{$primary-apptabs};
+  --sidebar-active-text: #{$white};
+
+  // Tabs
+  --tab-active-bg: #{$primary-apptabs};
+  --tab-active-text: #{$white};
+  --tab-active-border: #{$gray-900};
+
+  // Badges
+  --badge-info-bg: #{$info-light};
+  --badge-info-text: #{$info};
+  --badge-warn-bg: #{$warning-light};
+  --badge-warn-text: #{$warning};
 }
 
 html.dark-mode {
@@ -60,6 +80,27 @@ html.dark-mode {
   --section-line: #64748b;
   --content-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   --blue-bar-bg: #{darken($primary-ciel, 10%)};
+
+  // Hover
+  --hover-bg: rgba(96, 165, 250, 0.15);
+  --hover-text: #60a5fa;
+
+  // Sidebar
+  --sidebar-border: rgba(29, 176, 255, 0.4);
+  --sidebar-active-bg: rgba(110, 204, 241, 0.2);
+  --sidebar-active-text: #93c5fd;
+
+  // Tabs
+  --tab-active-bg: rgba(110, 204, 241, 0.2);
+  --tab-active-text: #e2e8f0;
+  --tab-active-border: #60a5fa;
+
+  // Badges
+  --badge-info-bg: rgba(37, 99, 235, 0.2);
+  --badge-info-text: #60a5fa;
+  --badge-warn-bg: rgba(180, 83, 9, 0.2);
+  --badge-warn-text: #fbbf24;
+
   background: var(--bg-body);
   color: var(--text-primary);
 }

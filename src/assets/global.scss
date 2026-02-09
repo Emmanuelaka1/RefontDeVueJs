@@ -19,6 +19,7 @@ body {
   font-size: $font-size-base;
   color: var(--text-primary);
   background: var(--bg-body);
+  transition: background-color 0.3s ease, color 0.3s ease;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

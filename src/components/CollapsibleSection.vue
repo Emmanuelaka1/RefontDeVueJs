@@ -66,7 +66,7 @@ defineEmits<{
     }
 
     .chevron-wrapper {
-      background: $gray-300;
+      background: var(--hover-bg);
     }
   }
 }

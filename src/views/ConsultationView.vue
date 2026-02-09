@@ -57,8 +57,8 @@ const store = usePretStore()
 
 .header-icon {
   font-size: 14px;
-  color: $primary;
-  background: $gray-100;
+  color: var(--hover-text);
+  background: var(--bg-elevated);
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -76,8 +76,8 @@ const store = usePretStore()
 .badge-status {
   font-size: $font-size-xs;
   font-weight: $font-weight-medium;
-  color: $info;
-  background: $gray-100;
+  color: var(--badge-info-text);
+  background: var(--badge-info-bg);
   padding: 2px $space-sm;
   border-radius: $border-radius-sm;
 }
@@ -95,17 +95,17 @@ const store = usePretStore()
   font-size: $font-size-sm;
   font-family: inherit;
   font-weight: $font-weight-medium;
-  color: $gray-600;
-  background: $gray-100;
-  border: 1px solid $gray-300;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-main);
   border-radius: $border-radius;
   cursor: pointer;
   transition: all $transition-base;
 
   &:hover {
-    color: $primary;
-    border-color: $primary;
-    background: $primary-light;
+    color: var(--hover-text);
+    border-color: var(--hover-text);
+    background: var(--hover-bg);
   }
 
   .pi {

@@ -70,8 +70,8 @@
 .badge-coming {
   font-size: $font-size-xs;
   font-weight: $font-weight-medium;
-  color: $warning;
-  background: $warning-light;
+  color: var(--badge-warn-text);
+  background: var(--badge-warn-bg);
   padding: 2px $space-sm;
   border-radius: $border-radius-sm;
   white-space: nowrap;

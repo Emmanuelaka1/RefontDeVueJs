@@ -31,7 +31,7 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
   width: $sidebar-width;
   min-width: $sidebar-width;
   background: var(--sidebar-bg);
-  border-right: 8px solid $primary-ciel;
+  border-right: 8px solid var(--sidebar-border);
   display: flex;
   flex-direction: column;
   user-select: none;
@@ -77,13 +77,13 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
   }
 
   &:hover {
-    background: $primary-light;
-    color: $primary-dark;
+    background: var(--hover-bg);
+    color: var(--hover-text);
   }
 
   &.active {
-    background: $primary-apptabs;
-    color: $white;
+    background: var(--sidebar-active-bg);
+    color: var(--sidebar-active-text);
     font-weight: $font-weight-semibold;
     border-left-color: $primary;
 
