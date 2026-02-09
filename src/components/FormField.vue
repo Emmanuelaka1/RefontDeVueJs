@@ -49,7 +49,7 @@ withDefaults(
   color: var(--text-primary);
   min-height: 24px;
   padding: $space-xxs $space-sm;
-  border: 1px solid rgba(59, 89, 152, 0.25);
+  border: 1px solid var(--border-input);
   border-radius: $border-radius-sm;
 }
 </style>

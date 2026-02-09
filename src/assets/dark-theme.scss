@@ -20,6 +20,7 @@
   // Borders
   --border-main: #{$gray-300};
   --border-light: #{$gray-200};
+  --border-input: rgba(59, 89, 152, 0.25);
   --border-card: #{$gray-900};
 
   // Components
@@ -70,6 +71,7 @@ html.dark-mode {
   // Borders
   --border-main: #475569;
   --border-light: #334155;
+  --border-input: rgba(96, 165, 250, 0.3);
   --border-card: #475569;
 
   // Components
