@@ -13,7 +13,9 @@
     "test:e2e": "cypress run",
     "test:e2e:open": "cypress open",
     "lint": "eslint src --ext .vue,.ts,.tsx --fix",
-    "type-check": "vue-tsc --noEmit"
+    "type-check": "vue-tsc --noEmit",
+    "api:generate": "openapi-typescript openapi/sigac-prets.yaml -o src/types/api.d.ts",
+    "api:validate": "openapi-typescript openapi/sigac-prets.yaml --check"
   },
   "dependencies": {
     "pinia": "^2.1.7",
@@ -34,6 +36,7 @@
     "eslint": "^8.57.0",
     "eslint-plugin-vue": "^9.24.0",
     "jsdom": "^24.0.0",
+    "openapi-typescript": "^7.12.0",
     "sass-embedded": "^1.97.3",
     "typescript": "^5.4.0",
     "unplugin-vue-components": "^31.0.0",

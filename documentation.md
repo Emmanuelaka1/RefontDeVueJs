@@ -18,6 +18,7 @@ Guide pas a pas de la configuration du projet Vue 3 + TypeScript + Vite.
 10. [Scripts disponibles](#10-scripts-disponibles)
 11. [Structure du projet](#11-structure-du-projet)
 12. [Integration du Dark Mode](#12-integration-du-dark-mode)
+13. [Architecture de la couche service](#13-architecture-de-la-couche-service)
 
 ---
 
@@ -1166,3 +1167,364 @@ html.dark-mode {
 
 > **Convention de nommage** : `--categorie-element-propriete`
 > Exemples : `--bg-body`, `--text-primary`, `--hover-bg`, `--badge-info-text`
+
+---
+
+## 13. Architecture de la couche service
+
+La couche service isole la logique d'acces aux donnees du reste de l'application. Elle permet de basculer entre un mode mock (donnees locales) et un mode HTTP (API backend) via une simple variable d'environnement.
+
+### Sommaire du chapitre
+
+- [13.1 Architecture generale](#131---architecture-generale)
+- [13.2 Interface PretService](#132---interface-pretservice)
+- [13.3 Factory et singleton](#133---factory-et-singleton)
+- [13.4 Implementation Mock](#134---implementation-mock)
+- [13.5 Implementation HTTP](#135---implementation-http)
+- [13.6 Specification OpenAPI](#136---specification-openapi)
+- [13.7 Generation des types](#137---generation-des-types)
+- [13.8 Configuration des environnements](#138---configuration-des-environnements)
+- [13.9 Proxy Vite pour le CORS](#139---proxy-vite-pour-le-cors)
+- [13.10 Ajouter un nouvel endpoint](#1310---ajouter-un-nouvel-endpoint)
+
+---
+
+### 13.1 - Architecture generale
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Composants Vue / Store Pinia                                   │
+│  (ConsultationView, pretStore, etc.)                           │
+├─────────────────────────────────────────────────────────────────┤
+│  getPretService() — Factory singleton                          │
+│  src/services/pretService.ts                                    │
+├──────────────────────┬──────────────────────────────────────────┤
+│  MockPretService     │  HttpPretService                        │
+│  (donnees locales)   │  (fetch → /api/v1)                      │
+│  pretService.mock.ts │  pretService.http.ts                    │
+├──────────────────────┴──────────────────────────────────────────┤
+│  Interface PretService + types (ServiceResponse, DossierPret)  │
+│  src/types/index.ts                                            │
+├─────────────────────────────────────────────────────────────────┤
+│  Spec OpenAPI (openapi/sigac-prets.yaml)                       │
+│  → openapi-typescript → src/types/api.d.ts (auto-genere)       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Principe** : les composants ne connaissent que l'interface `PretService`. La factory decide quelle implementation instancier selon `VITE_API_MODE`.
+
+---
+
+### 13.2 - Interface PretService
+
+Definie dans `src/types/index.ts` :
+
+```ts
+export interface ServiceResponse<T> {
+  data: T
+  success: boolean
+  message?: string
+}
+
+export interface PretService {
+  getDossier(id: string): Promise<ServiceResponse<DossierPret>>
+  listerDossiers(): Promise<ServiceResponse<DossierResume[]>>
+}
+```
+
+| Element | Role |
+|---------|------|
+| `ServiceResponse<T>` | Envelope generique : `success` indique le resultat, `data` contient les donnees, `message` decrit l'erreur eventuelle |
+| `PretService` | Contrat que toute implementation doit respecter |
+| `getDossier(id)` | Charge un dossier complet par son identifiant |
+| `listerDossiers()` | Retourne la liste des resumes de dossiers |
+
+---
+
+### 13.3 - Factory et singleton
+
+Fichier `src/services/pretService.ts` :
+
+```ts
+import type { PretService } from '@/types'
+
+let _promise: Promise<PretService> | null = null
+
+export function getPretService(): Promise<PretService> {
+  if (!_promise) {
+    if (import.meta.env.VITE_API_MODE === 'http') {
+      _promise = import('./pretService.http').then((m) => new m.HttpPretService())
+    } else {
+      _promise = import('./pretService.mock').then((m) => new m.MockPretService())
+    }
+  }
+  return _promise
+}
+```
+
+| Point | Explication |
+|-------|-------------|
+| `let _promise` | Cache le singleton : un seul import dynamique par session |
+| `import()` dynamique | Code-splitting : seule l'implementation utilisee est chargee dans le bundle |
+| `VITE_API_MODE` | `'http'` → backend reel, tout autre valeur → mock |
+
+**Utilisation dans un composant ou store** :
+
+```ts
+import { getPretService } from '@/services/pretService'
+
+const service = await getPretService()
+const response = await service.getDossier('DOSS-2024-001')
+```
+
+---
+
+### 13.4 - Implementation Mock
+
+Fichier `src/services/pretService.mock.ts` :
+
+```ts
+export class MockPretService implements PretService {
+  async getDossier(id: string): Promise<ServiceResponse<DossierPret>> {
+    await delay(400)
+    const dossier = mockDossiers.find((d) => d.id === id)
+    if (!dossier) return { data: null, success: false, message: `Dossier "${id}" introuvable` }
+    return { data: structuredClone(dossier), success: true }
+  }
+
+  async listerDossiers(): Promise<ServiceResponse<DossierResume[]>> {
+    await delay(400)
+    const resumes = mockDossiers.map((d) => ({ id: d.id, noPret: ..., ... }))
+    return { data: resumes, success: true }
+  }
+}
+```
+
+| Point | Explication |
+|-------|-------------|
+| `delay(400)` | Simule la latence reseau (400 ms) |
+| `structuredClone()` | Retourne une copie profonde pour eviter les mutations partagees |
+| `mockDossiers` | 3 dossiers fictifs dans `src/data/mockDossiers.ts` |
+
+---
+
+### 13.5 - Implementation HTTP
+
+Fichier `src/services/pretService.http.ts` :
+
+```ts
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+
+export class HttpPretService implements PretService {
+  async getDossier(id: string): Promise<ServiceResponse<DossierPret>> {
+    try {
+      const response = await fetch(`${BASE_URL}/prets/${id}`)
+      if (!response.ok) {
+        return { data: null, success: false, message: `Erreur HTTP ${response.status}` }
+      }
+      return await response.json()
+    } catch (error) {
+      return { data: null, success: false, message: `Erreur reseau : ${error.message}` }
+    }
+  }
+
+  async listerDossiers(): Promise<ServiceResponse<DossierResume[]>> {
+    try {
+      const response = await fetch(`${BASE_URL}/prets`)
+      if (!response.ok) {
+        return { data: [], success: false, message: `Erreur HTTP ${response.status}` }
+      }
+      return await response.json()
+    } catch (error) {
+      return { data: [], success: false, message: `Erreur reseau : ${error.message}` }
+    }
+  }
+}
+```
+
+| Point | Explication |
+|-------|-------------|
+| `fetch()` natif | Pas de dependance externe (pas d'axios) |
+| `BASE_URL` | Configurable via `VITE_API_BASE_URL` (defaut `/api/v1`) |
+| Pas de `throw` | Retourne toujours un `ServiceResponse`, jamais d'exception non geree |
+| `response.ok` | `false` si le status HTTP n'est pas 2xx |
+| `catch` | Intercepte les erreurs reseau (serveur inaccessible, timeout, etc.) |
+
+---
+
+### 13.6 - Specification OpenAPI
+
+Fichier `openapi/sigac-prets.yaml` — OpenAPI 3.0.3 :
+
+| Element | Valeur |
+|---------|--------|
+| Serveur | `/api/v1` |
+| Endpoints | `GET /prets` (lister), `GET /prets/{id}` (consulter) |
+| Schemas | `DonneesGenerales`, `DonneesPret`, `DatesPret`, `DossierPret`, `DossierResume`, `ServiceResponseDossierPret`, `ServiceResponseDossierResumeList` |
+| Types des champs | Tous `string` (coherent avec les interfaces TypeScript) |
+
+La spec sert de **contrat d'API** entre le frontend et le backend. Elle peut etre :
+- Partagee avec l'equipe backend
+- Utilisee pour generer les types TypeScript (voir 13.7)
+- Importee dans Swagger UI ou Postman pour tester
+
+---
+
+### 13.7 - Generation des types
+
+L'outil `openapi-typescript` genere un fichier `src/types/api.d.ts` a partir de la spec YAML :
+
+```bash
+npm run api:generate    # Genere src/types/api.d.ts
+npm run api:validate    # Verifie la spec sans generer
+```
+
+Le fichier genere contient les types TypeScript correspondant exactement aux schemas OpenAPI. Il est **auto-genere** et ne doit pas etre modifie manuellement.
+
+| Script | Commande | Resultat |
+|--------|----------|----------|
+| `api:generate` | `openapi-typescript openapi/sigac-prets.yaml -o src/types/api.d.ts` | Genere le fichier de types |
+| `api:validate` | `openapi-typescript openapi/sigac-prets.yaml --check` | Verifie que la spec est valide |
+
+> **Note** : Les interfaces manuelles dans `src/types/index.ts` restent la source de verite pour le code existant. Les types generes dans `api.d.ts` servent de reference de compatibilite avec le backend.
+
+---
+
+### 13.8 - Configuration des environnements
+
+Trois variables d'environnement Vite controlent le comportement :
+
+| Variable | Description | Valeurs |
+|----------|-------------|---------|
+| `VITE_API_MODE` | Mode du service | `mock` (defaut) ou `http` |
+| `VITE_API_BASE_URL` | URL de base de l'API | `/api/v1` (defaut) |
+| `VITE_API_TARGET` | URL du backend (proxy Vite) | `http://localhost:8080` (defaut) |
+
+**Fichiers de configuration** :
+
+| Fichier | Role | Commite ? |
+|---------|------|-----------|
+| `.env.example` | Template avec les valeurs par defaut | Oui |
+| `.env.development` | Valeurs de dev (mode mock) | Oui |
+| `.env.local` | Surcharges personnelles (secrets) | Non (`.gitignore`) |
+
+**Declarations TypeScript** dans `src/env.d.ts` :
+
+```ts
+interface ImportMetaEnv {
+  readonly VITE_API_MODE: string
+  readonly VITE_API_BASE_URL: string
+  readonly VITE_API_TARGET: string
+}
+```
+
+Pour basculer en mode HTTP :
+
+```bash
+# .env.local (non commite)
+VITE_API_MODE=http
+```
+
+---
+
+### 13.9 - Proxy Vite pour le CORS
+
+En developpement, le navigateur bloque les requetes cross-origin. Le proxy Vite resout ce probleme :
+
+```ts
+// vite.config.ts
+server: {
+  proxy: {
+    '/api': {
+      target: env.VITE_API_TARGET || 'http://localhost:8080',
+      changeOrigin: true,
+      secure: false,
+    },
+  },
+}
+```
+
+| Option | Role |
+|--------|------|
+| `'/api'` | Toute requete commencant par `/api` est redirigee |
+| `target` | URL du backend (configurable via `VITE_API_TARGET`) |
+| `changeOrigin: true` | Modifie le header `Host` pour correspondre au backend |
+| `secure: false` | Autorise les certificats SSL auto-signes (dev) |
+
+**Flux de la requete en dev** :
+
+```
+Navigateur → http://localhost:3000/api/v1/prets
+           → Proxy Vite redirige vers http://localhost:8080/api/v1/prets
+           → Reponse retournee au navigateur (pas de CORS)
+```
+
+> **En production** : le proxy n'existe plus. L'API est soit sur le meme domaine, soit configuree avec les headers CORS cote backend.
+
+---
+
+### 13.10 - Ajouter un nouvel endpoint
+
+Pour ajouter un nouvel endpoint (ex: `PUT /prets/{id}`), suivre ces etapes :
+
+**Etape A** — Ajouter l'endpoint dans `openapi/sigac-prets.yaml` :
+
+```yaml
+/prets/{id}:
+  put:
+    summary: Modifier un dossier de pret
+    operationId: modifierDossier
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DossierPret'
+    responses:
+      '200':
+        description: Dossier modifie
+```
+
+**Etape B** — Regenerer les types :
+
+```bash
+npm run api:generate
+```
+
+**Etape C** — Ajouter la methode dans l'interface `PretService` :
+
+```ts
+export interface PretService {
+  getDossier(id: string): Promise<ServiceResponse<DossierPret>>
+  listerDossiers(): Promise<ServiceResponse<DossierResume[]>>
+  modifierDossier(id: string, data: DossierPret): Promise<ServiceResponse<DossierPret>>  // nouveau
+}
+```
+
+**Etape D** — Implementer dans les deux services :
+
+```ts
+// pretService.mock.ts
+async modifierDossier(id: string, data: DossierPret) { ... }
+
+// pretService.http.ts
+async modifierDossier(id: string, data: DossierPret) {
+  const response = await fetch(`${BASE_URL}/prets/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  ...
+}
+```
+
+**Etape E** — Ajouter les tests :
+
+```bash
+npm run test:unit
+```
