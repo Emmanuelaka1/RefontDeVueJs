@@ -31,6 +31,8 @@
   --section-line: #{$gray-900};
   --content-shadow: #{$shadow-sm};
   --blue-bar-bg: #{$primary-ciel};
+  --toolbar-accent: #{$primary-ciel};
+  --sidebar-depth: 1px 0 4px rgba(0, 0, 0, 0.04);
 
   // Hover
   --hover-bg: #{$primary-light};
@@ -82,6 +84,8 @@ html.dark-mode {
   --section-line: #64748b;
   --content-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   --blue-bar-bg: #{darken($primary-ciel, 10%)};
+  --toolbar-accent: rgba(29, 176, 255, 0.5);
+  --sidebar-depth: 1px 0 6px rgba(0, 0, 0, 0.2);
 
   // Hover
   --hover-bg: rgba(96, 165, 250, 0.15);

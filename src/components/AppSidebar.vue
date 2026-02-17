@@ -39,6 +39,7 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
   overflow: hidden;
   z-index: $z-sidebar;
   padding-top: $space-sm;
+  box-shadow: var(--sidebar-depth);
 
   &.collapsed {
     width: $sidebar-collapsed-width;
@@ -61,35 +62,45 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
   align-items: center;
   gap: $space-sm;
   padding: $space-sm $space-lg;
+  margin: 1px $space-xs 1px 0;
   font-size: $font-size-md;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all $transition-base;
   border-left: 3px solid transparent;
+  border-radius: 0 $border-radius $border-radius 0;
   white-space: nowrap;
   overflow: hidden;
+  position: relative;
 
   .collapsed & {
     justify-content: center;
     padding: $space-sm 0;
+    margin: 1px 0;
     border-left: none;
     border-bottom: 2px solid transparent;
+    border-radius: 0;
   }
 
   &:hover {
     background: var(--hover-bg);
     color: var(--hover-text);
+    border-left-color: var(--sidebar-border);
+
+    .collapsed & {
+      border-left-color: transparent;
+    }
   }
 
   &.active {
     background: var(--sidebar-active-bg);
     color: var(--sidebar-active-text);
     font-weight: $font-weight-semibold;
-    border-left-color: $primary;
+    border-left-color: var(--sidebar-border);
 
     .collapsed & {
       border-left-color: transparent;
-      border-bottom-color: $primary;
+      border-bottom-color: var(--sidebar-border);
     }
   }
 }
@@ -97,6 +108,15 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
 .sidebar-icon {
   font-size: 18px;
   flex-shrink: 0;
+  transition: transform $transition-fast;
+
+  .sidebar-item:hover & {
+    transform: translateX(1px);
+  }
+
+  .collapsed .sidebar-item:hover & {
+    transform: translateY(-1px);
+  }
 }
 
 .sidebar-label {
