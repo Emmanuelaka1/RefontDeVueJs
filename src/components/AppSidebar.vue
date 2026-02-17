@@ -1,18 +1,24 @@
 <template>
   <aside class="app-sidebar" :class="{ collapsed }" data-testid="sidebar">
-    <!--div class="sidebar-section-header" v-if="!collapsed">Navigation</div -->
-    <div
-      v-for="item in sidebarItems"
-      :key="item.id"
-      class="sidebar-item"
-      :class="{ active: activeSidebarId === item.id }"
-      :data-testid="`sidebar-item-${item.id}`"
-      :title="collapsed ? item.label : undefined"
-      @click="selectSidebarItem(item)"
-    >
-      <i v-if="item.icon" class="pi sidebar-icon" :class="item.icon" />
-      <span v-if="!collapsed" class="sidebar-label">{{ item.label }}</span>
+    <div v-if="!collapsed" class="sidebar-header">
+      <span class="sidebar-header-label">Navigation</span>
     </div>
+    <nav class="sidebar-nav">
+      <div
+        v-for="item in sidebarItems"
+        :key="item.id"
+        class="sidebar-item"
+        :class="{ active: activeSidebarId === item.id }"
+        :data-testid="`sidebar-item-${item.id}`"
+        :title="collapsed ? item.label : undefined"
+        @click="selectSidebarItem(item)"
+      >
+        <span class="sidebar-icon-wrap">
+          <i v-if="item.icon" class="pi sidebar-icon" :class="item.icon" />
+        </span>
+        <span v-if="!collapsed" class="sidebar-label">{{ item.label }}</span>
+      </div>
+    </nav>
   </aside>
 </template>
 
@@ -31,14 +37,13 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
   width: $sidebar-width;
   min-width: $sidebar-width;
   background: var(--sidebar-bg);
-  border-right: 8px solid var(--sidebar-border);
+  border-right: 3px solid var(--sidebar-border);
   display: flex;
   flex-direction: column;
   user-select: none;
   transition: width $transition-base, min-width $transition-base;
   overflow: hidden;
   z-index: $z-sidebar;
-  padding-top: $space-sm;
   box-shadow: var(--sidebar-depth);
 
   &.collapsed {
@@ -47,80 +52,113 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
   }
 }
 
-.sidebar-section-header {
-  font-size: $font-size-xs;
-  font-weight: $font-weight-semibold;
+.sidebar-header {
+  padding: $space-lg $space-lg $space-xs;
+}
+
+.sidebar-header-label {
+  font-size: 10px;
+  font-weight: $font-weight-bold;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: $space-sm $space-lg;
-  white-space: nowrap;
+  letter-spacing: 1.2px;
+}
+
+.sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: $space-xs $space-sm;
+  gap: 2px;
+
+  .collapsed & {
+    padding: $space-sm $space-xs;
+    align-items: center;
+  }
 }
 
 .sidebar-item {
   display: flex;
   align-items: center;
   gap: $space-sm;
-  padding: $space-sm $space-lg;
-  margin: 1px $space-xs 1px 0;
+  padding: 7px $space-md;
   font-size: $font-size-md;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all $transition-base;
-  border-left: 3px solid transparent;
-  border-radius: 0 $border-radius $border-radius 0;
+  border-radius: $border-radius-lg;
   white-space: nowrap;
   overflow: hidden;
   position: relative;
 
   .collapsed & {
+    padding: $space-sm;
     justify-content: center;
-    padding: $space-sm 0;
-    margin: 1px 0;
-    border-left: none;
-    border-bottom: 2px solid transparent;
-    border-radius: 0;
+    border-radius: $border-radius;
   }
 
   &:hover {
     background: var(--hover-bg);
     color: var(--hover-text);
-    border-left-color: var(--sidebar-border);
-
-    .collapsed & {
-      border-left-color: transparent;
-    }
   }
 
   &.active {
     background: var(--sidebar-active-bg);
     color: var(--sidebar-active-text);
     font-weight: $font-weight-semibold;
-    border-left-color: var(--sidebar-border);
+
+    // Floating left accent strip
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 55%;
+      border-radius: 0 3px 3px 0;
+      background: var(--sidebar-border);
+    }
 
     .collapsed & {
-      border-left-color: transparent;
-      border-bottom-color: var(--sidebar-border);
+      &::before {
+        left: 50%;
+        top: auto;
+        bottom: 0;
+        transform: translateX(-50%);
+        width: 55%;
+        height: 3px;
+        border-radius: 3px 3px 0 0;
+      }
     }
   }
 }
 
-.sidebar-icon {
-  font-size: 18px;
+.sidebar-icon-wrap {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $border-radius;
   flex-shrink: 0;
-  transition: transform $transition-fast;
+  transition: all $transition-base;
 
-  .sidebar-item:hover & {
-    transform: translateX(1px);
+  .collapsed & {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
   }
+}
 
-  .collapsed .sidebar-item:hover & {
-    transform: translateY(-1px);
-  }
+.sidebar-icon {
+  font-size: 16px;
+  flex-shrink: 0;
 }
 
 .sidebar-label {
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: $font-size-sm;
 }
 </style>
