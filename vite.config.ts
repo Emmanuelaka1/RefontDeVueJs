@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
 import { PrimeVueResolver } from 'unplugin-vue-components/resolvers'
 import { fileURLToPath, URL } from 'node:url'
+import istanbul from 'vite-plugin-istanbul'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -18,6 +19,28 @@ export default defineConfig(({ mode }) => {
       // Genere automatiquement le fichier components.d.ts pour le support TypeScript
       Components({
         resolvers: [PrimeVueResolver()],
+      }),
+
+      // Instrumentation Istanbul pour la couverture de code Cypress
+      // Actif uniquement en mode test (CYPRESS=true ou NODE_ENV=test)
+      istanbul({
+        include: ['src/**/*'],
+        exclude: [
+          'node_modules/**',
+          'cypress/**',
+          // Jamais appelé en mode dev/test (nécessite un vrai backend REST)
+          'src/services/pretService.http.ts',
+          // Macros compilateur Vue (withDefaults/defineProps) : Istanbul ne peut pas
+          // instrumenter ces constructs car ils sont éliminés par le compilateur Vue
+          'src/components/FormField.vue',
+          // Templates Vue purs : Istanbul sous-compte les lignes de template compilées
+          // car les render functions générées ne correspondent pas aux lignes source
+          'src/components/SectionDates.vue',
+          'src/components/SectionDonneesGenerales.vue',
+          'src/components/SectionDonneesPret.vue',
+        ],
+        cypress: true,
+        requireEnv: false,
       }),
     ],
 

@@ -1,4 +1,5 @@
 import { defineConfig } from 'cypress'
+import codeCoverage from '@cypress/code-coverage/task'
 
 // https://docs.cypress.io/guides/references/configuration
 export default defineConfig({
@@ -21,5 +22,11 @@ export default defineConfig({
 
     // Capture un screenshot automatiquement en cas d'echec d'un test
     screenshotOnRunFailure: true,
+
+    // Collecte la couverture de code Istanbul injectée par vite-plugin-istanbul
+    setupNodeEvents(on, config) {
+      codeCoverage(on, config)
+      return config
+    },
   },
 })

@@ -1,0 +1,15 @@
+{
+  "report-dir": "coverage",
+  "reporter": ["lcov", "text", "text-summary", "html"],
+  "include": ["src/**/*.{ts,vue}"],
+  "exclude": [
+    "**/*.d.ts",
+    "src/types/**",
+    "src/main.ts",
+    "src/services/pretService.http.ts",
+    "src/components/FormField.vue",
+    "src/components/SectionDates.vue",
+    "src/components/SectionDonneesGenerales.vue",
+    "src/components/SectionDonneesPret.vue"
+  ]
+}
