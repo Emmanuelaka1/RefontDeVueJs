@@ -22,7 +22,7 @@
 11. [Résolution des personnes (Topaze)](#11-résolution-des-personnes-topaze)
 12. [Gestion des erreurs](#12-gestion-des-erreurs)
 13. [Données mock de démonstration](#13-données-mock-de-démonstration)
-14. [Migration vers la production](#14-migration-vers-la-production)
+14. [Environnements et profils Spring](#14-environnements-et-profils-spring)
 15. [Troubleshooting](#15-troubleshooting)
 
 ---
@@ -60,7 +60,7 @@ En mode développement, toutes les données proviennent de **mocks internes** (p
 
 **Aucune base de données requise** en mode développement — les données sont en mémoire (mock).
 
-**Aucune connexion Topaze requise** en mode développement — le `PersonnesMockDao` est utilisé par défaut.
+**Aucune connexion Topaze requise** en mode développement — le `PersonnesMockDao` (`@Profile("dev")`) est utilisé par défaut.
 
 ---
 
@@ -133,14 +133,23 @@ server:
 spring:
   application:
     name: sgesapi
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+    # Profils disponibles : dev | val | rec | hml | prod
 
-# Thrift Client Topaze (non utilisé en mode mock)
+# Thrift Client Topaze (chargé uniquement hors profil "dev")
 thrift:
   client:
     topaze:
-      host: ${TOPAZE_THRIFT_HOST:192.168.1.100}
+      host: ${TOPAZE_THRIFT_HOST:localhost}
       port: ${TOPAZE_THRIFT_PORT:9090}
-      timeout: 5000
+      timeout: ${TOPAZE_THRIFT_TIMEOUT:5000}
+      pool:
+        max-total: ${TOPAZE_POOL_MAX_TOTAL:8}
+        max-idle: ${TOPAZE_POOL_MAX_IDLE:4}
+        min-idle: ${TOPAZE_POOL_MIN_IDLE:1}
+        test-on-borrow: true
+        test-while-idle: true
 
 # JWT
 jwt:
@@ -322,23 +331,41 @@ sgesapi/
 │   │   │   ├── dao/
 │   │   │   │   ├── api/
 │   │   │   │   │   ├── IDossierDao.java         ← Interface DAO dossiers
-│   │   │   │   │   ├── IPersonnesDao.java       ← Interface DAO personnes
-│   │   │   │   │   └── ThriftClientPool.java    ← Pool connexions Thrift
+│   │   │   │   │   └── IPersonnesDao.java       ← Interface DAO personnes
 │   │   │   │   ├── impl/
-│   │   │   │   │   ├── DossierMockDao.java      ← Mock 5 dossiers (dev)
-│   │   │   │   │   ├── PersonnesMockDao.java    ← Mock 8 personnes (dev)
-│   │   │   │   │   └── PersonnesThriftDao.java  ← DAO Thrift (prod)
+│   │   │   │   │   ├── DossierMockDao.java      ← Mock 5 dossiers
+│   │   │   │   │   ├── PersonnesMockDao.java    ← Mock 8 personnes (@Profile "dev")
+│   │   │   │   │   └── PersonnesThriftDao.java  ← DAO Thrift Catalyst (@Profile "!dev")
 │   │   │   │   └── model/
 │   │   │   │       ├── DossierConsultationDto.java
 │   │   │   │       ├── DossierResumeDto.java
 │   │   │   │       ├── PersonneMinimaleDto.java
 │   │   │   │       └── RechercheCriteria.java
+│   │   │   ├── thrift/
+│   │   │   │   ├── AbstractThriftDAO.java            ← execute() + multi-catch (Catalyst)
+│   │   │   │   ├── spring/
+│   │   │   │   │   └── AbstractCatalystThriftDAO.java ← Pool getClient/finalizeClient
+│   │   │   │   ├── callback/
+│   │   │   │   │   └── ThriftDaoCallbackIface.java   ← @FunctionalInterface
+│   │   │   │   ├── pool/
+│   │   │   │   │   ├── TServiceClientPool.java       ← Commons Pool2 wrapper
+│   │   │   │   │   └── ThriftClientFactory.java      ← Factory clients Thrift
+│   │   │   │   └── data/
+│   │   │   │       ├── ResponseContext.java           ← Analyse réponses Thrift
+│   │   │   │       └── ResponseType.java              ← Enum SUCCESS/ERROR/WARNING/INFO
+│   │   │   ├── config/
+│   │   │   │   └── ThriftPoolConfig.java         ← Bean pool Thrift (@Profile "!dev")
 │   │   │   └── exception/
 │   │   │       ├── GlobalExceptionHandler.java
 │   │   │       ├── DossierNotFoundException.java
-│   │   │       └── ThriftDaoException.java
+│   │   │       └── DAOException.java             ← Exception checked (extends Exception)
 │   │   ├── resources/
 │   │   │   ├── application.yml
+│   │   │   ├── application-dev.yml               ← Profil dev (mock, pas de Thrift)
+│   │   │   ├── application-val.yml               ← Profil validation
+│   │   │   ├── application-rec.yml               ← Profil recette
+│   │   │   ├── application-hml.yml               ← Profil homologation
+│   │   │   ├── application-prod.yml              ← Profil production
 │   │   │   └── specs/
 │   │   │       └── openapi.json        ← Spec Swagger 2.0 (API Topaze)
 │   │   └── thrift/
@@ -362,10 +389,10 @@ sgesapi/
 │  DAO (Interfaces)                                        │
 │  (IDossierDao, IPersonnesDao)                            │
 ├───────────────────────┬─────────────────────────────────┤
-│  Mock (dev)           │  Thrift (prod)                   │
+│  Mock  @Profile("dev")│  Thrift  @Profile("!dev")        │
 │  DossierMockDao       │  PersonnesThriftDao              │
-│  PersonnesMockDao     │  ThriftClientPool → Topaze       │
-│  (@Primary)           │                                  │
+│  PersonnesMockDao     │    → AbstractThriftDAO (Catalyst)│
+│                       │    → TServiceClientPool → Topaze │
 └───────────────────────┴─────────────────────────────────┘
 ```
 
@@ -650,12 +677,12 @@ Le service métier ne connaît que les interfaces DAO. L'injection Spring choisi
 
 ```
 DossierService  →  IDossierDao (interface)
-                      ├── DossierMockDao    (@Repository, seul impl)
-                      └── [DossierThriftDao] (futur, production)
+                      ├── DossierMockDao    (@Repository, seul impl pour l'instant)
+                      └── [DossierThriftDao] (futur, @Profile "!dev")
 
 PersonnesService →  IPersonnesDao (interface)
-                      ├── PersonnesMockDao   (@Repository @Primary)
-                      └── PersonnesThriftDao (@Repository, désactivé par @Primary)
+                      ├── PersonnesMockDao   (@Repository @Profile "dev")
+                      └── PersonnesThriftDao (@Repository @Profile "!dev" → val/rec/hml/prod)
 ```
 
 ### 10.2 IDossierDao
@@ -725,7 +752,7 @@ DossierService.consulterDossier("2024-PAP-001547")
 
 ### 11.2 En mode mock
 
-`PersonnesMockDao` (`@Primary`) fournit 8 personnes en mémoire. Correspondance identifiant → nom :
+`PersonnesMockDao` (`@Profile("dev")`) fournit 8 personnes en mémoire. Correspondance identifiant → nom :
 
 | Identifiant | Nom complet |
 |-------------|-------------|
@@ -752,7 +779,7 @@ service DonneesGeneriquesTopaze {
 }
 ```
 
-Pour activer : retirer `@Primary` de `PersonnesMockDao` et activer via profil Spring.
+Activation automatique via profil Spring : `PersonnesThriftDao` est annoté `@Profile("!dev")` et se charge sur val, rec, hml, prod.
 
 ---
 
@@ -765,7 +792,7 @@ Toutes les erreurs sont capturées par `@RestControllerAdvice` et retournées en
 | Exception | Code HTTP | Message |
 |-----------|-----------|---------|
 | `DossierNotFoundException` | 404 | `Dossier 'XXX' non trouvé` |
-| `ThriftDaoException` | 500 | `Erreur d'accès au système Topaze` |
+| `DAOException` | 500 | `Erreur d'accès au système Topaze` |
 | `IllegalArgumentException` | 400 | Message de l'exception |
 | `Exception` (autre) | 500 | `Erreur technique inattendue` |
 
@@ -810,39 +837,59 @@ Si la résolution des noms échoue (Topaze indisponible), le dossier est quand m
 
 ---
 
-## 14. Migration vers la production
+## 14. Environnements et profils Spring
 
-### 14.1 Checklist
+### 14.1 Les 5 profils
 
-1. **Port serveur** : vérifier `server.port` dans `application.yml` (actuellement 9088)
-2. **Thrift Topaze** : configurer `TOPAZE_THRIFT_HOST` et `TOPAZE_THRIFT_PORT`
-3. **Générer le code Thrift** : `gradlew generateThrift` (nécessite le binaire `thrift` installé)
-4. **Activer PersonnesThriftDao** : retirer `@Primary` de `PersonnesMockDao` ou utiliser un profil Spring
-5. **Créer DossierThriftDao** : implémenter `IDossierDao` avec appels Thrift réels
-6. **Sécurité JWT** : commenter `.requestMatchers("/api/v1/**").permitAll()` dans `SecurityConfig`
-7. **Clé JWT** : définir une clé secrète forte via `JWT_SECRET`
-8. **CORS** : restreindre les origines autorisées aux domaines de production
-9. **Dates du prêt** : brancher les `DatesPret` sur Topaze (actuellement vides dans `PretsApiDelegateImpl`)
+Le projet utilise des profils Spring pour basculer entre Mock (dev) et Thrift réel (val/rec/hml/prod) :
 
-### 14.2 Profils Spring recommandés
+| Profil | DAO Personnes | ThriftPoolConfig | Host Topaze | Fichier config |
+|--------|---------------|------------------|-------------|----------------|
+| **dev** | `PersonnesMockDao` | Non chargé | — | `application-dev.yml` |
+| **val** | `PersonnesThriftDao` | Chargé | `topaze-val.arkea.local` | `application-val.yml` |
+| **rec** | `PersonnesThriftDao` | Chargé | `topaze-rec.arkea.local` | `application-rec.yml` |
+| **hml** | `PersonnesThriftDao` | Chargé | `topaze-hml.arkea.local` | `application-hml.yml` |
+| **prod** | `PersonnesThriftDao` | Chargé | `topaze.arkea.local` | `application-prod.yml` |
 
-```yaml
-# application-dev.yml (mode mock actuel)
-spring.profiles.active: dev
+### 14.2 Mécanisme d'activation
 
-# application-prod.yml (mode Thrift réel)
-spring.profiles.active: prod
-thrift.client.topaze.host: topaze-prod.internal
-thrift.client.topaze.port: 9090
+Les beans sont conditionnés par `@Profile` :
+
+- `PersonnesMockDao` → `@Profile("dev")` — chargé uniquement en dev
+- `PersonnesThriftDao` → `@Profile("!dev")` — chargé sur tout sauf dev
+- `ThriftPoolConfig` → `@Profile("!dev")` — pas de pool Thrift instancié en dev
+
+Le profil par défaut est `dev` (défini dans `application.yml` : `spring.profiles.active: ${SPRING_PROFILES_ACTIVE:dev}`).
+
+### 14.3 Lancement par environnement
+
+```bash
+# Développement local (mock — défaut, pas besoin de Topaze)
+./gradlew bootRun
+
+# Validation
+SPRING_PROFILES_ACTIVE=val ./gradlew bootRun
+
+# Recette
+SPRING_PROFILES_ACTIVE=rec java -jar sgesapi.jar
+
+# Homologation
+java -jar sgesapi.jar -Dspring.profiles.active=hml
+
+# Production
+SPRING_PROFILES_ACTIVE=prod java -jar sgesapi.jar
 ```
 
-### 14.3 Activation par profil
+### 14.4 Checklist mise en production
 
-Annoter les DAOs :
-- `DossierMockDao` → `@Profile("dev")`
-- `PersonnesMockDao` → `@Profile("dev")`
-- `PersonnesThriftDao` → `@Profile("prod")`
-- `DossierThriftDao` (à créer) → `@Profile("prod")`
+1. **Générer le code Thrift** : `gradlew generateThrift` (nécessite le binaire `thrift`)
+2. **Remplacer `TServiceClient`** par `DonneesGeneriquesTopaze.Client` dans `PersonnesThriftDao` et `ThriftPoolConfig`
+3. **Créer DossierThriftDao** : implémenter `IDossierDao` avec `extends AbstractThriftDAO` et `@Profile("!dev")`
+4. **Thrift Topaze** : vérifier les hosts dans chaque `application-{profil}.yml`
+5. **Sécurité JWT** : commenter `.requestMatchers("/api/v1/**").permitAll()` dans `SecurityConfig`
+6. **Clé JWT** : définir une clé secrète forte via `JWT_SECRET`
+7. **CORS** : restreindre les origines autorisées aux domaines de chaque environnement
+8. **Dates du prêt** : brancher les `DatesPret` sur Topaze (actuellement vides dans `PretsApiDelegateImpl`)
 
 ---
 

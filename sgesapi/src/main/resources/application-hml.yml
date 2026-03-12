@@ -1,0 +1,18 @@
+# ══════════════════════════════════════════════════════════════════
+# Profil HML — Homologation (pré-production)
+# ══════════════════════════════════════════════════════════════════
+thrift:
+  client:
+    topaze:
+      host: ${TOPAZE_THRIFT_HOST:topaze-hml.arkea.local}
+      port: ${TOPAZE_THRIFT_PORT:9090}
+      timeout: 5000
+      pool:
+        max-total: 8
+        max-idle: 4
+        min-idle: 2
+
+logging:
+  level:
+    com.arkea.sgesapi: INFO
+    org.apache.thrift: WARN

@@ -6,14 +6,24 @@ server:
 spring:
   application:
     name: sgesapi
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+    # Profils disponibles : dev | val | rec | hml | prod
 
-# ── Thrift Client Topaze ───────────────────────────────────────────
+# ── Thrift Client Topaze (défauts communs) ────────────────────────
+# Host et port sont surchargés par profil dans application-{profil}.yml
 thrift:
   client:
     topaze:
-      host: ${TOPAZE_THRIFT_HOST:192.168.1.100}
+      host: ${TOPAZE_THRIFT_HOST:localhost}
       port: ${TOPAZE_THRIFT_PORT:9090}
-      timeout: 5000
+      timeout: ${TOPAZE_THRIFT_TIMEOUT:5000}
+      pool:
+        max-total: ${TOPAZE_POOL_MAX_TOTAL:8}
+        max-idle: ${TOPAZE_POOL_MAX_IDLE:4}
+        min-idle: ${TOPAZE_POOL_MIN_IDLE:1}
+        test-on-borrow: true
+        test-while-idle: true
 
 # ── JWT ────────────────────────────────────────────────────────────
 jwt:

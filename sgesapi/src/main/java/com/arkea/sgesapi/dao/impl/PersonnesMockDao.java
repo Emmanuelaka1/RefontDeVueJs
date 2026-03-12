@@ -2,10 +2,11 @@ package com.arkea.sgesapi.dao.impl;
 
 import com.arkea.sgesapi.dao.api.IPersonnesDao;
 import com.arkea.sgesapi.dao.model.PersonneMinimaleDto;
+import com.arkea.sgesapi.exception.DAOException;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import java.util.HashMap;
@@ -19,10 +20,11 @@ import java.util.stream.Collectors;
  * Fournit des données de démonstration pour le développement frontend.
  * Sera remplacée par PersonnesThriftDao en production (via Topaze).
  * <p>
- * Marqué @Primary pour prendre la priorité sur PersonnesThriftDao en dev.
+ * Activé uniquement avec le profil Spring "dev".
+ * En production (profil "prod"), PersonnesThriftDao prend le relais.
  */
 @Repository
-@Primary
+@Profile("dev")
 public class PersonnesMockDao implements IPersonnesDao {
 
     private static final Logger log = LoggerFactory.getLogger(PersonnesMockDao.class);
@@ -46,7 +48,8 @@ public class PersonnesMockDao implements IPersonnesDao {
     }
 
     @Override
-    public Map<String, PersonneMinimaleDto> getInformationsMinimalesPersonnes(List<String> identifiantsPersonnes) {
+    public Map<String, PersonneMinimaleDto> getInformationsMinimalesPersonnes(List<String> identifiantsPersonnes)
+            throws DAOException {
         log.debug("Mock — getInformationsMinimalesPersonnes nb={}", identifiantsPersonnes.size());
 
         return identifiantsPersonnes.stream()

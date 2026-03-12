@@ -4,6 +4,7 @@ import com.arkea.sgesapi.dao.api.IDossierDao;
 import com.arkea.sgesapi.dao.model.DossierConsultationDto;
 import com.arkea.sgesapi.dao.model.DossierResumeDto;
 import com.arkea.sgesapi.dao.model.RechercheCriteria;
+import com.arkea.sgesapi.exception.DAOException;
 import com.arkea.sgesapi.exception.DossierNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,7 +17,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 /**
@@ -36,7 +36,7 @@ class DossierServiceTest {
     private DossierService dossierService;
 
     @Test
-    void rechercherDossiers_retourneResultats() {
+    void rechercherDossiers_retourneResultats() throws DAOException {
         // Given
         RechercheCriteria criteria = RechercheCriteria.builder()
                 .nomEmprunteur("MARTIN")
@@ -63,7 +63,7 @@ class DossierServiceTest {
     }
 
     @Test
-    void consulterDossier_existant_resoutPersonnes() {
+    void consulterDossier_existant_resoutPersonnes() throws DAOException {
         // Given
         DossierConsultationDto dossier = DossierConsultationDto.builder()
                 .numeroPret("2024-PAP-001547")
@@ -87,7 +87,7 @@ class DossierServiceTest {
     }
 
     @Test
-    void consulterDossier_inexistant_lanceException() {
+    void consulterDossier_inexistant_lanceException() throws DAOException {
         // Given
         when(dossierDao.consulterDossier("INVALID")).thenReturn(Optional.empty());
 
@@ -97,7 +97,7 @@ class DossierServiceTest {
     }
 
     @Test
-    void consulterDossier_sansCoEmprunteur_resoutEmprunteurSeul() {
+    void consulterDossier_sansCoEmprunteur_resoutEmprunteurSeul() throws DAOException {
         // Given
         DossierConsultationDto dossier = DossierConsultationDto.builder()
                 .numeroPret("2023-PAP-000412")
@@ -117,5 +117,20 @@ class DossierServiceTest {
         assertNotNull(result);
         assertEquals("LECLERC Sophie", result.getEmprunteur());
         assertNull(result.getCoEmprunteur());
+    }
+
+    @Test
+    void rechercherDossiers_erreurDAO_propageException() throws DAOException {
+        // Given
+        when(dossierDao.rechercherDossiers(any())).thenThrow(new DAOException("Erreur Topaze"));
+
+        RechercheCriteria criteria = RechercheCriteria.builder()
+                .page(0)
+                .taille(20)
+                .build();
+
+        // When / Then
+        assertThrows(DAOException.class, () ->
+                dossierService.rechercherDossiers(criteria));
     }
 }

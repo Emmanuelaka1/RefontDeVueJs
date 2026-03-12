@@ -30,9 +30,9 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    @ExceptionHandler(ThriftDaoException.class)
-    public ResponseEntity<Map<String, Object>> handleThriftDaoException(ThriftDaoException ex) {
-        log.error("Erreur DAO Thrift : {}", ex.getMessage(), ex);
+    @ExceptionHandler(DAOException.class)
+    public ResponseEntity<Map<String, Object>> handleDAOException(DAOException ex) {
+        log.error("Erreur DAO : {}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                 "timestamp", LocalDateTime.now().toString(),
                 "status", 500,

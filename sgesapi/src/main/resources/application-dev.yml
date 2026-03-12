@@ -1,0 +1,10 @@
+# ══════════════════════════════════════════════════════════════════
+# Profil DEV — Développement local
+# ══════════════════════════════════════════════════════════════════
+# Pas de connexion Thrift : les Mock DAOs sont utilisés.
+# ThriftPoolConfig et PersonnesThriftDao ne sont pas chargés.
+
+logging:
+  level:
+    com.arkea.sgesapi: DEBUG
+    org.apache.thrift: WARN

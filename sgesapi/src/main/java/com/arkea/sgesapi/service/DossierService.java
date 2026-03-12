@@ -4,6 +4,7 @@ import com.arkea.sgesapi.dao.api.IDossierDao;
 import com.arkea.sgesapi.dao.model.DossierConsultationDto;
 import com.arkea.sgesapi.dao.model.DossierResumeDto;
 import com.arkea.sgesapi.dao.model.RechercheCriteria;
+import com.arkea.sgesapi.exception.DAOException;
 import com.arkea.sgesapi.exception.DossierNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +21,9 @@ import java.util.List;
  * Utilise PersonnesService pour résoudre les identifiants Topaze
  * (noEmprunteur, noCoEmprunteur) en noms complets via
  * getInformationsMinimalesPersonnes.
+ * <p>
+ * Les erreurs DAO (DAOException) sont propagées vers le contrôleur
+ * et gérées par le GlobalExceptionHandler.
  */
 @Service
 public class DossierService {
@@ -40,8 +44,10 @@ public class DossierService {
      * <p>
      * Les noms emprunteur/coEmprunteur sont résolus via PersonnesService
      * pour chaque résultat.
+     *
+     * @throws DAOException en cas d'erreur d'accès aux données
      */
-    public List<DossierResumeDto> rechercherDossiers(RechercheCriteria criteria) {
+    public List<DossierResumeDto> rechercherDossiers(RechercheCriteria criteria) throws DAOException {
         log.info("Recherche dossiers — critères : {}", criteria);
         List<DossierResumeDto> resultats = dossierDao.rechercherDossiers(criteria);
 
@@ -55,8 +61,10 @@ public class DossierService {
 
     /**
      * Compte le total de résultats pour la pagination.
+     *
+     * @throws DAOException en cas d'erreur d'accès aux données
      */
-    public long compterDossiers(RechercheCriteria criteria) {
+    public long compterDossiers(RechercheCriteria criteria) throws DAOException {
         return dossierDao.compterDossiers(criteria);
     }
 
@@ -69,8 +77,9 @@ public class DossierService {
      * du service Topaze.
      *
      * @throws DossierNotFoundException si le dossier n'existe pas
+     * @throws DAOException en cas d'erreur d'accès aux données
      */
-    public DossierConsultationDto consulterDossier(String numeroPret) {
+    public DossierConsultationDto consulterDossier(String numeroPret) throws DAOException {
         log.info("Consultation dossier — N° prêt : {}", numeroPret);
         DossierConsultationDto dossier = dossierDao.consulterDossier(numeroPret)
                 .orElseThrow(() -> new DossierNotFoundException(numeroPret));
@@ -112,7 +121,6 @@ public class DossierService {
         }
     }
 
-    
     /**
      * Résout les noms emprunteur/coEmprunteur pour un DossierResumeDto
      * en appelant PersonnesService.resoudreEmprunteurCoEmprunteur().

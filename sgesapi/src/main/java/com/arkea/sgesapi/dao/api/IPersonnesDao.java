@@ -1,6 +1,7 @@
 package com.arkea.sgesapi.dao.api;
 
 import com.arkea.sgesapi.dao.model.PersonneMinimaleDto;
+import com.arkea.sgesapi.exception.DAOException;
 
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,8 @@ public interface IPersonnesDao {
      *
      * @param identifiantsPersonnes liste des identifiants Topaze (noEmprunteur, noCoEmprunteur, etc.)
      * @return Map identifiant → PersonneMinimaleDto (les identifiants inconnus sont absents de la map)
+     * @throws DAOException en cas d'erreur d'accès aux données Topaze
      */
-    Map<String, PersonneMinimaleDto> getInformationsMinimalesPersonnes(List<String> identifiantsPersonnes);
+    Map<String, PersonneMinimaleDto> getInformationsMinimalesPersonnes(List<String> identifiantsPersonnes)
+            throws DAOException;
 }

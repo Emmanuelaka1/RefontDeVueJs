@@ -4,6 +4,7 @@ import com.arkea.sgesapi.api.sigac.PretsApiDelegate;
 import com.arkea.sgesapi.dao.model.DossierConsultationDto;
 import com.arkea.sgesapi.dao.model.DossierResumeDto;
 import com.arkea.sgesapi.dao.model.RechercheCriteria;
+import com.arkea.sgesapi.exception.DAOException;
 import com.arkea.sgesapi.exception.DossierNotFoundException;
 import com.arkea.sgesapi.model.sigac.*;
 import com.arkea.sgesapi.service.DossierService;
@@ -45,23 +46,28 @@ public class PretsApiDelegateImpl implements PretsApiDelegate {
     public ResponseEntity<ServiceResponseDossierResumeList> listerDossiers() {
         log.info("SIGAC — listerDossiers");
 
-        RechercheCriteria criteria = RechercheCriteria.builder()
-                .page(0)
-                .taille(100)
-                .build();
+        try {
+            RechercheCriteria criteria = RechercheCriteria.builder()
+                    .page(0)
+                    .taille(100)
+                    .build();
 
-        List<DossierResumeDto> resultats = dossierService.rechercherDossiers(criteria);
+            List<DossierResumeDto> resultats = dossierService.rechercherDossiers(criteria);
 
-        List<DossierResume> resumes = resultats.stream()
-                .map(this::toSigacResume)
-                .collect(Collectors.toList());
+            List<DossierResume> resumes = resultats.stream()
+                    .map(this::toSigacResume)
+                    .collect(Collectors.toList());
 
-        ServiceResponseDossierResumeList response = new ServiceResponseDossierResumeList();
-        response.setData(resumes);
-        response.setSuccess(true);
-        response.setMessage("OK");
+            ServiceResponseDossierResumeList response = new ServiceResponseDossierResumeList();
+            response.setData(resumes);
+            response.setSuccess(true);
+            response.setMessage("OK");
 
-        return ResponseEntity.ok(response);
+            return ResponseEntity.ok(response);
+        } catch (DAOException e) {
+            log.error("Erreur DAO lors de la recherche de dossiers", e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     // ── GET /api/v1/prets/{id} ────────────────────────────────────
@@ -74,6 +80,9 @@ public class PretsApiDelegateImpl implements PretsApiDelegate {
             return ResponseEntity.ok(toSigacResponse(dto));
         } catch (DossierNotFoundException e) {
             return ResponseEntity.notFound().build();
+        } catch (DAOException e) {
+            log.error("Erreur DAO lors de la consultation du dossier {}", id, e);
+            return ResponseEntity.internalServerError().build();
         }
     }
 

@@ -1,0 +1,18 @@
+# ══════════════════════════════════════════════════════════════════
+# Profil REC — Recette (tests fonctionnels)
+# ══════════════════════════════════════════════════════════════════
+thrift:
+  client:
+    topaze:
+      host: ${TOPAZE_THRIFT_HOST:topaze-rec.arkea.local}
+      port: ${TOPAZE_THRIFT_PORT:9090}
+      timeout: 10000
+      pool:
+        max-total: 8
+        max-idle: 4
+        min-idle: 1
+
+logging:
+  level:
+    com.arkea.sgesapi: INFO
+    org.apache.thrift: WARN

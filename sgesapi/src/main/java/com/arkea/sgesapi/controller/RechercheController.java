@@ -2,6 +2,7 @@ package com.arkea.sgesapi.controller;
 
 import com.arkea.sgesapi.dao.model.DossierResumeDto;
 import com.arkea.sgesapi.dao.model.RechercheCriteria;
+import com.arkea.sgesapi.exception.DAOException;
 import com.arkea.sgesapi.service.DossierService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -43,7 +44,7 @@ public class RechercheController {
                description = "Recherche par nom, numéro de prêt, EFS, structure, état, nature. "
                            + "Résultats paginés. Sélectionner un dossier pour accéder à la consultation.")
     public ResponseEntity<Map<String, Object>> rechercherDossiers(
-            @RequestBody RechercheRequest request) {
+            @RequestBody RechercheRequest request) throws DAOException {
 
         log.info("Recherche dossiers — requête : {}", request);
 
@@ -80,7 +81,7 @@ public class RechercheController {
     public ResponseEntity<Map<String, Object>> rechercheRapide(
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int taille) {
+            @RequestParam(defaultValue = "20") int taille) throws DAOException {
 
         log.info("Recherche rapide — q='{}' page={} taille={}", q, page, taille);
 

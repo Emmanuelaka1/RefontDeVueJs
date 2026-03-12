@@ -1,0 +1,18 @@
+# ══════════════════════════════════════════════════════════════════
+# Profil PROD — Production
+# ══════════════════════════════════════════════════════════════════
+thrift:
+  client:
+    topaze:
+      host: ${TOPAZE_THRIFT_HOST:topaze.arkea.local}
+      port: ${TOPAZE_THRIFT_PORT:9090}
+      timeout: 5000
+      pool:
+        max-total: 16
+        max-idle: 8
+        min-idle: 4
+
+logging:
+  level:
+    com.arkea.sgesapi: WARN
+    org.apache.thrift: ERROR

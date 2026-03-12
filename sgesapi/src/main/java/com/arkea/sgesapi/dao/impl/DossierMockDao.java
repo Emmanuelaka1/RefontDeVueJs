@@ -4,6 +4,7 @@ import com.arkea.sgesapi.dao.api.IDossierDao;
 import com.arkea.sgesapi.dao.model.DossierConsultationDto;
 import com.arkea.sgesapi.dao.model.DossierResumeDto;
 import com.arkea.sgesapi.dao.model.RechercheCriteria;
+import com.arkea.sgesapi.exception.DAOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
@@ -184,7 +185,7 @@ public class DossierMockDao implements IDossierDao {
     }
 
     @Override
-    public List<DossierResumeDto> rechercherDossiers(RechercheCriteria criteria) {
+    public List<DossierResumeDto> rechercherDossiers(RechercheCriteria criteria) throws DAOException {
         log.debug("Recherche mock avec critères : {}", criteria);
 
         return dossiers.stream()
@@ -196,14 +197,14 @@ public class DossierMockDao implements IDossierDao {
     }
 
     @Override
-    public long compterDossiers(RechercheCriteria criteria) {
+    public long compterDossiers(RechercheCriteria criteria) throws DAOException {
         return dossiers.stream()
                 .filter(d -> matchCriteria(d, criteria))
                 .count();
     }
 
     @Override
-    public Optional<DossierConsultationDto> consulterDossier(String numeroPret) {
+    public Optional<DossierConsultationDto> consulterDossier(String numeroPret) throws DAOException {
         log.debug("Consultation mock pour le numéro de prêt : {}", numeroPret);
         return dossiers.stream()
                 .filter(d -> d.getNumeroPret().equalsIgnoreCase(numeroPret))

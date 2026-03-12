@@ -1,6 +1,7 @@
 package com.arkea.sgesapi.controller;
 
 import com.arkea.sgesapi.dao.model.DossierConsultationDto;
+import com.arkea.sgesapi.exception.DAOException;
 import com.arkea.sgesapi.service.DossierService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,7 +42,7 @@ public class ConsultationController {
                description = "Récupère les données générales et données prêt d'un dossier. "
                            + "Redirigé depuis l'écran de recherche après sélection d'un dossier.")
     public ResponseEntity<ConsultationResponse> consulterDossier(
-            @PathVariable String numeroPret) {
+            @PathVariable String numeroPret) throws DAOException {
 
         log.info("Consultation dossier — N° prêt : {}", numeroPret);
 

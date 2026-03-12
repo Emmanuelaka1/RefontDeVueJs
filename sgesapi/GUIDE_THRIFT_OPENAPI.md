@@ -26,8 +26,8 @@
 5. [Le cycle de vie d'une requête complète](#5-le-cycle-de-vie-dune-requête-complète)
 6. [Thrift dans sgesapi — Implémentation détaillée](#6-thrift-dans-sgesapi--implémentation-détaillée)
    - 6.1. Le fichier IDL du projet
-   - 6.2. ThriftClientPool — Le pool de connexions
-   - 6.3. PersonnesThriftDao — L'implémentation DAO
+   - 6.2. Architecture Catalyst — Pool, Callback, AbstractDAO
+   - 6.3. PersonnesThriftDao — L'implémentation DAO (pattern Catalyst)
    - 6.4. Mapping Thrift struct ↔ DTO Java
 7. [OpenAPI dans sgesapi — Implémentation détaillée](#7-openapi-dans-sgesapi--implémentation-détaillée)
    - 7.1. La spécification SIGAC (OpenAPI 3.0.3)
@@ -111,16 +111,23 @@ Frontend Vue.js
 │       │          │ (interface)  │                                │
 │       │          └──────┬───────┘                                │
 │       │                 │                                       │
-│  ┌────┴──────┐   ┌──────┴───────────┐                           │
-│  │ MockDao   │   │ PersonnesThriftDao│ ← appel TCP/Thrift       │
-│  │ (@Primary)│   │                   │   vers Topaze             │
-│  └───────────┘   └──────┬────────────┘                           │
+│  ┌─────────────┐ ┌──────┴───────────┐                           │
+│  │ MockDao     │ │ PersonnesThriftDao│ ← appel TCP/Thrift       │
+│  │ @Profile    │ │ @Profile("!dev") │   vers Topaze             │
+│  │ ("dev")     │ │                  │                           │
+│  └─────────────┘ └──────┬───────────┘                           │
 │                         │                                       │
 │                         ▼                                       │
-│                  ┌──────────────┐                                │
-│                  │ThriftClientPool│                               │
-│                  │ TSocket + TCP │                                │
-│                  └──────┬───────┘                                │
+│                  ┌─────────────────────┐                          │
+│                  │AbstractThriftDAO    │                          │
+│                  │ execute() + pool    │                          │
+│                  │ (pattern Catalyst)  │                          │
+│                  └──────┬──────────────┘                          │
+│                         │                                       │
+│                  ┌──────────────────┐                             │
+│                  │TServiceClientPool│                             │
+│                  │ Commons Pool2    │                             │
+│                  └──────┬───────────┘                             │
 │                         │                                       │
 └─────────────────────────┼───────────────────────────────────────┘
                           │
@@ -465,15 +472,15 @@ DossierService.enrichirNomPersonnes(dossier)
     → personnesService.resoudreEmprunteurCoEmprunteur("PP-001547-E", "PP-003892-C")
         → personnesDao.getInformationsMinimalesPersonnes(["PP-001547-E", "PP-003892-C"])
 
-ÉTAPE 5a — EN DEV : PersonnesMockDao répond (pas de connexion Topaze)
+ÉTAPE 5a — EN DEV (@Profile "dev") : PersonnesMockDao répond (pas de connexion Topaze)
     → Retourne Map {"PP-001547-E" → PersonneMinimaleDto("MARTIN", "Jean-Pierre", "PP"),
                     "PP-003892-C" → PersonneMinimaleDto("DURAND", "Marie", "PP")}
 
-ÉTAPE 5b — EN PROD : PersonnesThriftDao appelle Topaze via TCP/Thrift
-    → Ouvre socket TCP vers 192.168.1.100:9090
+ÉTAPE 5b — EN VAL/REC/HML/PROD (@Profile "!dev") : PersonnesThriftDao appelle Topaze via TCP/Thrift
+    → Emprunte un client du TServiceClientPool (Commons Pool2)
     → Envoie requête binaire getInformationsMinimalesPersonnesTopaze
     → Reçoit réponse binaire avec les PersonneMinimale
-    → Ferme la socket
+    → Retourne le client au pool (ou invalide si erreur transport)
     → Convertit les struct Thrift en PersonneMinimaleDto
 
 ÉTAPE 6 — DossierService enrichit le DTO
@@ -562,119 +569,248 @@ service DonneesGeneriquesTopaze {
 }
 ```
 
-### 6.2. ThriftClientPool — Le pool de connexions
+### 6.2. Architecture Catalyst — Pool, Callback, AbstractDAO
 
-Le `ThriftClientPool` gère la communication TCP avec Topaze. C'est le composant le plus bas niveau côté Thrift.
+L'accès à Topaze suit le **pattern Catalyst Arkea**, une architecture en couches reproduite de l'écosystème RPL interne. Voici la hiérarchie complète :
+
+```
+PersonnesThriftDao
+  extends AbstractThriftDAO<DonneesGeneriquesTopaze.Client>
+    extends AbstractCatalystThriftDAO<DonneesGeneriquesTopaze.Client>
+  implements IPersonnesDao
+```
+
+#### a) TServiceClientPool — Pool Apache Commons Pool2
+
+Au lieu d'ouvrir/fermer une connexion TCP à chaque appel, on utilise un **pool de clients réutilisables** basé sur Apache Commons Pool2. Le pool gère automatiquement la création, la validation et la destruction des clients Thrift.
 
 ```java
-@Component
-public class ThriftClientPool {
+public class TServiceClientPool<T extends TServiceClient> {
+    private final GenericObjectPool<T> internalPool;
 
-    @Value("${thrift.client.topaze.host}")
-    private String host;                    // 192.168.1.100
-
-    @Value("${thrift.client.topaze.port}")
-    private int port;                       // 9090
-
-    @Value("${thrift.client.topaze.timeout:5000}")
-    private int timeout;                    // timeout en ms
-
-    public <T> T execute(ThriftOperation<T> operation) {
-        TTransport transport = null;
-        try {
-            // 1. Ouvrir une connexion TCP
-            transport = new TSocket(host, port, timeout);
-            transport.open();
-
-            // 2. Créer le protocole binaire sur cette connexion
-            TProtocol protocol = new TBinaryProtocol(transport);
-
-            // 3. Créer le client Thrift (code généré)
-            DonneesGeneriquesTopaze.Client client =
-                new DonneesGeneriquesTopaze.Client(protocol);
-
-            // 4. Exécuter l'opération métier
-            return operation.execute(client);
-
-        } catch (TException e) {
-            throw new ThriftDaoException("Accès DAO Topaze indisponible", e);
-        } finally {
-            // 5. TOUJOURS fermer la connexion (même en cas d'erreur)
-            if (transport != null && transport.isOpen()) {
-                transport.close();
-            }
-        }
+    // Emprunter un client prêt à l'emploi
+    public T borrowObject() throws Exception {
+        return internalPool.borrowObject();
     }
 
-    @FunctionalInterface
-    public interface ThriftOperation<T> {
-        T execute(Object client) throws TException;
+    // Retourner un client valide au pool
+    public void returnObject(T client) {
+        internalPool.returnObject(client);
+    }
+
+    // Invalider un client défectueux (erreur transport)
+    public void invalidateObject(T client) {
+        internalPool.invalidateObject(client);
     }
 }
 ```
 
-**Explication pas à pas** :
+La **factory** `ThriftClientFactory` crée les clients via réflexion :
 
-1. `TSocket(host, port, timeout)` — Crée un socket TCP brut vers Topaze. Pas de HTTP, juste TCP.
-2. `transport.open()` — Ouvre physiquement la connexion réseau.
-3. `TBinaryProtocol(transport)` — Enveloppe le transport TCP dans le protocole binaire Thrift. C'est ce protocole qui définit comment les données Java sont converties en octets.
-4. `DonneesGeneriquesTopaze.Client(protocol)` — Crée une instance du client généré. Ce client sait comment appeler chaque méthode du service Thrift.
-5. `operation.execute(client)` — Exécute votre logique (appel de méthode Thrift).
-6. `transport.close()` — Libère la connexion TCP. Crucial pour éviter les fuites de connexions.
+```java
+public class ThriftClientFactory<T extends TServiceClient>
+        extends BasePooledObjectFactory<T> {
 
-**Configuration dans `application.yml`** :
+    @Override
+    public T create() throws Exception {
+        TTransport transport = new TSocket(host, port, timeout);
+        transport.open();
+        TProtocol protocol = new TBinaryProtocol(transport);
+        Constructor<T> ctor = clientClass.getConstructor(TProtocol.class);
+        return ctor.newInstance(protocol);
+    }
+}
+```
+
+#### b) ThriftDaoCallbackIface — Interface fonctionnelle callback
+
+```java
+@FunctionalInterface
+public interface ThriftDaoCallbackIface<T extends TServiceClient> {
+    Object doInConnection(T client) throws DAOException, TException;
+}
+```
+
+C'est le contrat pour les appels Thrift. Chaque DAO concret passe un lambda :
+`super.execute(client -> client.getInformationsMinimalesPersonnesTopaze(request))`
+
+#### c) AbstractCatalystThriftDAO — Gestion du pool
+
+Classe de base qui encapsule le pool et fournit `getClient()` / `finalizeClient()` :
+
+```java
+public abstract class AbstractCatalystThriftDAO<T extends TServiceClient> {
+    private final TServiceClientPool<T> pool;
+
+    protected T getClient() throws DAOException {
+        try { return pool.borrowObject(); }
+        catch (Exception e) { throw new DAOException("Erreur pool", e); }
+    }
+
+    protected void finalizeClient(T client, boolean invalidate) throws DAOException {
+        if (invalidate) pool.invalidateObject(client);
+        else pool.returnObject(client);
+    }
+}
+```
+
+#### d) AbstractThriftDAO — La méthode execute() avec gestion des erreurs
+
+C'est le cœur du pattern. La méthode `execute()` gère le cycle de vie complet :
+
+```java
+public abstract class AbstractThriftDAO<T extends TServiceClient>
+        extends AbstractCatalystThriftDAO<T> {
+
+    protected abstract String getFunctionnalContextId();
+
+    protected Object execute(ThriftDaoCallbackIface<T> clientCallback) throws DAOException {
+        boolean invalidateClient = false;
+        T client = null;
+
+        try {
+            // 1. Emprunter un client du pool
+            client = getClient();
+
+            // 2. Exécuter le callback (appel Thrift)
+            Object resp = clientCallback.doInConnection(client);
+
+            // 3. Analyser le ResponseContext (erreurs métier)
+            Object ctx = PropertyUtils.getProperty(resp, "responseContext");
+            if (ctx instanceof ResponseContext rc) {
+                if (rc.containsKey(ResponseType.ERROR)) {
+                    throw new DAOException(rc.getFirstError());
+                }
+            }
+            return resp;
+
+        } catch (TTransportException e) {
+            invalidateClient = true;   // Connexion cassée → invalider
+            throw new DAOException("Erreur pour " + getFunctionnalContextId(), e);
+        } catch (DAOException e) {
+            throw e;                   // Erreur métier → propager
+        } catch (TException e) {
+            throw new DAOException("Erreur pour " + getFunctionnalContextId(), e);
+        } catch (Exception e) {
+            invalidateClient = true;   // Erreur inattendue → invalider
+            throw new DAOException("Erreur pour " + getFunctionnalContextId(), e);
+        } finally {
+            // 4. TOUJOURS retourner/invalider le client dans le pool
+            finalizeClient(client, invalidateClient);
+        }
+    }
+}
+```
+
+**Points clés** :
+- `TTransportException` (connexion perdue) → on **invalide** le client dans le pool
+- `TException` (erreur protocole) → on ne l'invalide pas (erreur fonctionnelle possible)
+- `DAOException` (erreur métier) → on la propage telle quelle
+- Le bloc `finally` garantit que le client est **toujours** retourné ou invalidé
+
+#### e) Configuration Spring (ThriftPoolConfig)
+
+Le pool est configuré via `application.yml` et instancié par Spring :
+
+Les valeurs par défaut sont dans `application.yml`, surchargées par environnement dans `application-{profil}.yml` :
 
 ```yaml
+# application.yml (défauts communs)
 thrift:
   client:
     topaze:
-      host: ${TOPAZE_THRIFT_HOST:192.168.1.100}
+      host: ${TOPAZE_THRIFT_HOST:localhost}
       port: ${TOPAZE_THRIFT_PORT:9090}
-      timeout: 5000    # 5 secondes max par appel
+      timeout: ${TOPAZE_THRIFT_TIMEOUT:5000}
+      pool:
+        max-total: ${TOPAZE_POOL_MAX_TOTAL:8}
+        max-idle: ${TOPAZE_POOL_MAX_IDLE:4}
+        min-idle: ${TOPAZE_POOL_MIN_IDLE:1}
+        test-on-borrow: true
+        test-while-idle: true
 ```
 
-### 6.3. PersonnesThriftDao — L'implémentation DAO
+| Profil | Host Topaze | Pool max-total | Logging |
+|--------|-------------|----------------|---------|
+| **dev** | *(pas de Thrift — Mock DAOs)* | — | DEBUG |
+| **val** | `topaze-val.arkea.local` | 4 | DEBUG |
+| **rec** | `topaze-rec.arkea.local` | 8 | INFO |
+| **hml** | `topaze-hml.arkea.local` | 8 | INFO |
+| **prod** | `topaze.arkea.local` | 16 | WARN |
 
-Le `PersonnesThriftDao` utilise `ThriftClientPool` pour appeler Topaze et transformer la réponse Thrift en DTOs Java internes :
+```java
+@Configuration
+@Profile("!dev")   // ← NON chargé en dev (pas besoin de pool sans Thrift)
+public class ThriftPoolConfig {
+    @Bean
+    public TServiceClientPool<TServiceClient> topazeClientPool() {
+        ThriftClientFactory<TServiceClient> factory =
+            new ThriftClientFactory<>(TServiceClient.class, host, port, timeout);
+        GenericObjectPoolConfig<TServiceClient> config = new GenericObjectPoolConfig<>();
+        config.setMaxTotal(maxTotal);
+        config.setMaxIdle(maxIdle);
+        // ...
+        return new TServiceClientPool<>(factory, config);
+    }
+}
+```
+
+### 6.3. PersonnesThriftDao — L'implémentation DAO (pattern Catalyst)
+
+Le `PersonnesThriftDao` suit le pattern Catalyst en étendant `AbstractThriftDAO` et en utilisant `super.execute()` pour chaque appel Thrift :
 
 ```java
 @Repository
-public class PersonnesThriftDao implements IPersonnesDao {
+@Profile("!dev")   // ← actif sur val, rec, hml, prod
+public class PersonnesThriftDao
+        extends AbstractThriftDAO<TServiceClient>       // ou DonneesGeneriquesTopaze.Client
+        implements IPersonnesDao {
 
-    private final ThriftClientPool thriftClientPool;
+    public PersonnesThriftDao(TServiceClientPool<TServiceClient> pool) {
+        super(pool);    // Injecte le pool configuré par ThriftPoolConfig
+    }
 
-    public PersonnesThriftDao(ThriftClientPool thriftClientPool) {
-        this.thriftClientPool = thriftClientPool;
+    @Override
+    protected String getFunctionnalContextId() {
+        return "WsDonneesGeneriquesTopaze";   // Pour les logs et messages d'erreur
     }
 
     @Override
     public Map<String, PersonneMinimaleDto> getInformationsMinimalesPersonnes(
-            List<String> identifiantsPersonnes) {
+            List<String> identifiantsPersonnes) throws DAOException {
 
         // 1. Construire la requête Thrift (struct générée)
         GetInformationsMinimalesPersonnesTopazeRequest thriftReq =
             new GetInformationsMinimalesPersonnesTopazeRequest(identifiantsPersonnes);
 
-        // 2. Appeler Topaze via le pool TCP/Thrift
-        var thriftResponse = thriftClientPool.execute(client ->
-            ((DonneesGeneriquesTopaze.Client) client)
-                .getInformationsMinimalesPersonnesTopaze(thriftReq)
-        );
+        // 2. Appeler Topaze via le pattern execute/callback Catalyst
+        GetInformationsMinimalesPersonnesTopazeResponse thriftResp =
+            (GetInformationsMinimalesPersonnesTopazeResponse)
+                super.execute(client ->
+                    client.getInformationsMinimalesPersonnesTopaze(thriftReq));
 
         // 3. Convertir la réponse Thrift (struct) → DTO interne
-        return thriftResponse.getPersonnes().stream()
-            .collect(Collectors.toMap(
-                p -> p.getIdentifiant(),           // clé = identifiant
-                p -> new PersonneMinimaleDto(       // valeur = DTO interne
-                    p.getIdentifiant(),
-                    p.getNom(),
-                    p.getPrenom(),
-                    p.getTypePersonne()
-                )
-            ));
+        Map<String, PersonneMinimaleDto> result = new HashMap<>();
+        if (thriftResp.getPersonnes() != null) {
+            for (var p : thriftResp.getPersonnes()) {
+                result.put(p.getIdentifiant(),
+                    new PersonneMinimaleDto(
+                        p.getIdentifiant(),
+                        p.getNom(),
+                        p.getPrenom(),
+                        p.getTypePersonne()));
+            }
+        }
+        return result;
     }
 }
 ```
+
+**Différences clés avec l'ancien pattern** :
+- On **hérite** de `AbstractThriftDAO` au lieu de composer avec un `ThriftClientPool` simple
+- L'appel passe par `super.execute(callback)` qui gère automatiquement le pool, les erreurs, et le `ResponseContext`
+- `getFunctionnalContextId()` identifie le service pour les logs (comme dans le code RPL Arkea)
+- `DAOException` (checked) remplace `ThriftDaoException` (runtime) — forçant la gestion explicite des erreurs
 
 **Pourquoi convertir en DTO ?** Le code généré par Thrift (`PersonneMinimale` struct) contient des dépendances lourdes sur `libthrift` (sérialisation binaire, etc.). En convertissant en `PersonneMinimaleDto` (une classe Java simple), on **isole** le reste de l'application de Thrift. Le Service et le Delegate ne savent même pas que Thrift existe.
 
@@ -1054,75 +1190,101 @@ public interface IPersonnesDao {
 
 Tout le code au-dessus (Service, Delegate, Controller) ne connaît **que cette interface**. Il ne sait pas si les données viennent de Thrift, d'une base de données, ou d'un fichier statique.
 
-### 9.2. Mock DAO (@Primary)
+### 9.2. Mock DAO (`@Profile("dev")`)
 
-En développement, le mock DAO est prioritaire :
+En développement, le mock DAO est le seul bean `IPersonnesDao` chargé par Spring :
 
 ```java
 @Repository
-@Primary    // ← prend la priorité sur PersonnesThriftDao
+@Profile("dev")   // ← chargé uniquement avec le profil "dev"
 public class PersonnesMockDao implements IPersonnesDao {
 
-    private final Map<String, PersonneMinimaleDto> personnes = new HashMap<>();
+    private final Map<String, PersonneMinimaleDto> personnesStore = new HashMap<>();
 
-    public PersonnesMockDao() {
-        // Données de test en dur
-        personnes.put("PP-001547-E", new PersonneMinimaleDto(
+    @PostConstruct
+    void initMockData() {
+        personnesStore.put("PP-001547-E", new PersonneMinimaleDto(
             "PP-001547-E", "MARTIN", "Jean-Pierre", "PP"));
-        personnes.put("PP-003892-C", new PersonneMinimaleDto(
-            "PP-003892-C", "DURAND", "Marie", "PP"));
-        // ... 6 autres personnes
+        personnesStore.put("PP-002891-E", new PersonneMinimaleDto(
+            "PP-002891-E", "DUPONT", "Marie", "PP"));
+        // ... 8 personnes mock au total
     }
 
     @Override
     public Map<String, PersonneMinimaleDto> getInformationsMinimalesPersonnes(
-            List<String> identifiantsPersonnes) {
-        Map<String, PersonneMinimaleDto> result = new HashMap<>();
-        for (String id : identifiantsPersonnes) {
-            PersonneMinimaleDto p = personnes.get(id);
-            if (p != null) {
-                result.put(id, p);
-            }
-        }
-        return result;
+            List<String> identifiantsPersonnes) throws DAOException {
+        return identifiantsPersonnes.stream()
+            .filter(id -> id != null && personnesStore.containsKey(id))
+            .collect(Collectors.toMap(id -> id, personnesStore::get));
     }
 }
 ```
 
-**`@Primary` expliqué** : Spring voit deux beans qui implémentent `IPersonnesDao` (le mock et le Thrift). `@Primary` dit à Spring : "en cas de conflit, utilise celui-ci". Aucune configuration supplémentaire n'est nécessaire.
+**`@Profile("dev")` expliqué** : Spring ne crée ce bean que si le profil actif est `dev`. Sur les autres profils (val, rec, hml, prod), ce bean n'existe pas du tout — `PersonnesThriftDao` prend le relais.
 
-### 9.3. Thrift DAO (production)
+### 9.3. Thrift DAO (`@Profile("!dev")` — pattern Catalyst)
 
-En production, on retire `@Primary` du mock et on active le Thrift DAO via profils Spring :
-
-```java
-@Repository
-@Profile("production")    // actif uniquement avec le profil "production"
-public class PersonnesThriftDao implements IPersonnesDao {
-    // ... appels réels à Topaze via ThriftClientPool
-}
-```
+Sur tous les environnements hors dev, le DAO Thrift hérite de `AbstractThriftDAO` et utilise le pool Catalyst :
 
 ```java
 @Repository
-@Profile("!production")   // actif quand on n'est PAS en production
-@Primary
-public class PersonnesMockDao implements IPersonnesDao {
-    // ... données statiques
+@Profile("!dev")   // ← actif sur val, rec, hml, prod (tout sauf dev)
+public class PersonnesThriftDao
+        extends AbstractThriftDAO<TServiceClient>   // → DonneesGeneriquesTopaze.Client
+        implements IPersonnesDao {
+
+    public PersonnesThriftDao(TServiceClientPool<TServiceClient> pool) {
+        super(pool);
+    }
+
+    @Override
+    protected String getFunctionnalContextId() {
+        return "WsDonneesGeneriquesTopaze";
+    }
+
+    // Chaque méthode métier appelle super.execute(client -> client.xxx(request))
 }
 ```
 
-### 9.4. Basculer entre mock et production
+La configuration du pool est également conditionnée :
+
+```java
+@Configuration
+@Profile("!dev")   // ← pas de pool Thrift instancié en dev
+public class ThriftPoolConfig {
+    @Bean
+    public TServiceClientPool<TServiceClient> topazeClientPool() { ... }
+}
+```
+
+### 9.4. Les 5 environnements
+
+| Profil | DAO actif | ThriftPoolConfig | Host Topaze | Fichier |
+|--------|-----------|------------------|-------------|---------|
+| **dev** | `PersonnesMockDao` | Non chargé | — | `application-dev.yml` |
+| **val** | `PersonnesThriftDao` | Chargé | `topaze-val.arkea.local` | `application-val.yml` |
+| **rec** | `PersonnesThriftDao` | Chargé | `topaze-rec.arkea.local` | `application-rec.yml` |
+| **hml** | `PersonnesThriftDao` | Chargé | `topaze-hml.arkea.local` | `application-hml.yml` |
+| **prod** | `PersonnesThriftDao` | Chargé | `topaze.arkea.local` | `application-prod.yml` |
+
+### 9.5. Basculer entre environnements
 
 ```bash
-# Développement (mock par défaut — pas besoin de Topaze)
+# Développement local (mock par défaut — pas besoin de Topaze)
 ./gradlew bootRun
+# → profil "dev" activé via application.yml : spring.profiles.active=${SPRING_PROFILES_ACTIVE:dev}
 
-# Production (active PersonnesThriftDao — nécessite Topaze)
-./gradlew bootRun --args='--spring.profiles.active=production'
+# Validation
+SPRING_PROFILES_ACTIVE=val ./gradlew bootRun
 
-# Ou via variable d'environnement
-SPRING_PROFILES_ACTIVE=production java -jar sgesapi.jar
+# Recette
+SPRING_PROFILES_ACTIVE=rec java -jar sgesapi.jar
+
+# Homologation
+java -jar sgesapi.jar -Dspring.profiles.active=hml
+
+# Production
+SPRING_PROFILES_ACTIVE=prod java -jar sgesapi.jar
 ```
 
 ---
@@ -1209,38 +1371,60 @@ try {
 
 ---
 
-## 11. Gestion des erreurs Thrift
+## 11. Gestion des erreurs Thrift (pattern Catalyst)
 
-Thrift définit deux types d'exceptions, chacune gérée différemment :
+Le pattern Catalyst gère les erreurs à deux niveaux : dans `AbstractThriftDAO.execute()` (multi-catch) et via le `ResponseContext` des réponses Thrift.
+
+### Tableau des erreurs
 
 ```
-Type d'erreur                  Cause typique                   Traitement dans sgesapi
-─────────────────────────────────────────────────────────────────────────────────────────
-TopazeServiceException         Erreur technique Topaze          → log.error + ThriftDaoException
-(code + message)               (serveur indisponible, timeout)     → HTTP 500 au frontend
+Type d'erreur                  Cause typique                   Traitement dans AbstractThriftDAO
+─────────────────────────────────────────────────────────────────────────────────────────────────
+TTransportException            Connexion perdue, timeout        → invalidateClient = true
+                               (réseau, port fermé)                → DAOException → HTTP 500
 
-TopazeMetierException          Erreur métier Topaze             → log.warn + traitement spécifique
-(code + message)               (personne introuvable, etc.)        → HTTP 404 ou 400
+ResponseContext.ERROR          Erreur métier Topaze             → DAOException (message métier)
+                               (personne introuvable, etc.)        → HTTP 500 ou traitement spécifique
 
-TException                     Erreur de communication          → log.error + ThriftDaoException
-(libthrift)                    (protocole incompatible, etc.)      → HTTP 500
+TException                     Erreur de protocole Thrift       → DAOException (pas d'invalidation)
+(libthrift)                    (protocole incompatible)            → HTTP 500
 
-java.net.ConnectException      Topaze injoignable               → log.error + ThriftDaoException
-                               (réseau, port fermé)                → HTTP 500
+Exception (générique)          Erreur pool (borrowObject)       → invalidateClient = true
+                               ou erreur inattendue                → DAOException → HTTP 500
 ```
 
-La classe `ThriftDaoException` encapsule toutes les erreurs Thrift :
+### DAOException — Exception checked
+
+La classe `DAOException` remplace l'ancienne `ThriftDaoException` (runtime). C'est une **exception checked** (`extends Exception`) qui force la gestion explicite dans la couche service :
 
 ```java
-public class ThriftDaoException extends RuntimeException {
-    public ThriftDaoException(String message) {
-        super(message);
-    }
-    public ThriftDaoException(String message, Throwable cause) {
-        super(message, cause);
-    }
+public class DAOException extends Exception {
+    public DAOException(String message) { super(message); }
+    public DAOException(String message, Throwable cause) { super(message, cause); }
+    public DAOException(Throwable cause) { super(cause); }
 }
 ```
+
+### Gestion au niveau du delegate (controller)
+
+Le `GlobalExceptionHandler` intercepte `DAOException` et la convertit en HTTP 500 :
+
+```java
+@ExceptionHandler(DAOException.class)
+public ResponseEntity<Map<String, Object>> handleDAOException(DAOException ex) {
+    log.error("Erreur DAO : {}", ex.getMessage(), ex);
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+        "status", 500,
+        "message", "Erreur d'accès au système Topaze"
+    ));
+}
+```
+
+### Invalidation vs retour au pool
+
+Le choix entre invalider ou retourner le client est critique :
+- **Invalider** (`invalidateClient = true`) : le client est détruit. Le pool en créera un nouveau au besoin. Utilisé quand la connexion TCP est probablement cassée (`TTransportException`, `Exception` générique).
+- **Retourner** (`invalidateClient = false`) : le client est remis dans le pool pour réutilisation. Utilisé quand l'erreur est fonctionnelle (`TException`, `DAOException`) et que la connexion est toujours valide.
 
 ---
 
@@ -1363,22 +1547,30 @@ public List<EvenementDossierDto> getHistoriqueDossier(String numeroPret) {
 }
 ```
 
-**Étape 6 — Implémenter dans le Thrift DAO**
+**Étape 6 — Implémenter dans le Thrift DAO (pattern Catalyst)**
+
+Le DAO Thrift étend `AbstractThriftDAO` et utilise `super.execute()` :
 
 ```java
+// Dans DossierThriftDao extends AbstractThriftDAO<DonneesGeneriquesTopaze.Client>
+
 @Override
-public List<EvenementDossierDto> getHistoriqueDossier(String numeroPret) {
+public List<EvenementDossierDto> getHistoriqueDossier(String numeroPret) throws DAOException {
     HistoriqueDossierRequest thriftReq = new HistoriqueDossierRequest(numeroPret);
 
-    var thriftResponse = thriftClientPool.execute(client ->
-        ((DonneesGeneriquesTopaze.Client) client).getHistoriqueDossier(thriftReq));
+    // Appel via le pattern callback Catalyst
+    HistoriqueDossierResponse thriftResp =
+        (HistoriqueDossierResponse) super.execute(client ->
+            client.getHistoriqueDossier(thriftReq));
 
-    return thriftResponse.getEvenements().stream()
+    return thriftResp.getEvenements().stream()
         .map(e -> new EvenementDossierDto(
             e.getDateEvenement(), e.getTypeEvenement(), e.getDescription()))
         .collect(Collectors.toList());
 }
 ```
+
+Note : `super.execute()` gère automatiquement le pool (borrow/return/invalidate), le `ResponseContext`, et toutes les exceptions Thrift.
 
 **Étape 7 — Ajouter la logique métier dans le Service**
 
@@ -1548,15 +1740,23 @@ sigac-prets.yaml     →  gradle generateSigacPrets  →  PretsApiDelegate (gén
 | **Delegate Pattern** | Stratégie de génération où le controller généré délègue à une interface que vous implémentez |
 | **DAO** | Data Access Object — couche d'abstraction pour l'accès aux données |
 | **DTO** | Data Transfer Object — objet de transfert entre couches (sans logique métier) |
-| **@Primary** | Annotation Spring — donne la priorité à un bean quand plusieurs implémentent la même interface |
-| **@Profile** | Annotation Spring — active un bean uniquement pour un profil donné (dev, production) |
+| **@Profile** | Annotation Spring — active un bean uniquement pour un ou plusieurs profils donnés (dev, val, rec, hml, prod). `@Profile("!dev")` = actif sur tout sauf dev |
 | **BFF** | Backend For Frontend — backend intermédiaire dédié au frontend |
 | **Topaze** | Système legacy interne exposant des services via Thrift |
 | **SIGAC** | Système d'Information de Gestion et d'Administration des Crédits |
 | **PP** | Personne Physique (individu) |
 | **PM** | Personne Morale (entreprise, association) |
+| **Catalyst** | Framework interne Arkea fournissant les classes abstraites pour les DAO Thrift (pool, callback, execute) |
+| **TServiceClientPool** | Pool Apache Commons Pool2 de clients Thrift réutilisables |
+| **ThriftDaoCallbackIface** | Interface fonctionnelle callback pour les appels Thrift (doInConnection) |
+| **AbstractCatalystThriftDAO** | Classe de base Catalyst gérant le pool (getClient/finalizeClient) |
+| **AbstractThriftDAO** | Classe abstraite avec execute() — gestion complète du cycle de vie et des erreurs |
+| **ResponseContext** | Objet d'analyse des réponses Thrift — contient les messages par type (ERROR, WARNING, etc.) |
+| **DAOException** | Exception checked levée par la couche DAO — remplace ThriftDaoException |
+| **Commons Pool2** | Apache Commons Pool2 — bibliothèque de pooling d'objets (GenericObjectPool) |
 
 ---
 
 > **Document rédigé pour le projet SaphirGestion (5A02) — sgesapi**
 > Stack : Java 21, Spring Boot 3.3.0, Apache Thrift 0.20.0, OpenAPI Generator 7.6.0
+> Architecture DAO Thrift : Pattern Catalyst Arkea (Commons Pool2, Callback, AbstractThriftDAO)
