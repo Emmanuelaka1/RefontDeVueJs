@@ -4,23 +4,38 @@ import { usePretStore } from '@/stores/pretStore'
 import type { TabItem, SidebarItem } from '@/types'
 
 /**
- * Composable pour la navigation (onglets + sidebar)
+ * Composable pour la navigation (onglets + sidebar).
+ * Les onglets sont dynamiques : affichés uniquement en consultation/:id.
  */
 export function useNavigation() {
   const route = useRoute()
   const router = useRouter()
   const store = usePretStore()
 
-  // ── Onglets ──
-  const tabs: TabItem[] = [
-    { id: 'donnees-generales', label: 'Données générales', route: '/consultation/donnees-generales' },
-    { id: 'donnees-financieres', label: 'Données financières', route: '/consultation/donnees-financieres' },
-    { id: 'paliers', label: 'Paliers', route: '/consultation/paliers' },
-    { id: 'domiciliation', label: 'Domiciliation', route: '/consultation/domiciliation' },
+  // ── Onglets consultation (routes relatives, résolues dynamiquement) ──
+  const consultationTabs: TabItem[] = [
+    { id: 'donnees-generales', label: 'Données générales', route: 'donnees-generales' },
+    { id: 'donnees-financieres', label: 'Données financières', route: 'donnees-financieres' },
+    { id: 'paliers', label: 'Paliers', route: 'paliers' },
+    { id: 'domiciliation', label: 'Domiciliation', route: 'domiciliation' },
   ]
+
+  // ── Tabs dynamiques selon la section courante ──
+  const tabs = computed<TabItem[]>(() => {
+    const section = route.meta.section as string
+    if (section === 'consultation') {
+      const dossierId = route.params.id as string
+      return consultationTabs.map((t) => ({
+        ...t,
+        route: `/consultation/${dossierId}/${t.route}`,
+      }))
+    }
+    return []
+  })
 
   // ── Sidebar ──
   const sidebarItems: SidebarItem[] = [
+    { id: 'recherche', label: 'Recherche', route: '/recherche', icon: 'pi-search' },
     { id: 'consultation', label: 'Consultation', route: '/consultation', icon: 'pi-file-edit' },
     { id: 'deblocage', label: 'Déblocage', route: '/deblocage', icon: 'pi-unlock' },
     { id: 'rbt-anticipes', label: 'Rbt anticipés', route: '/rbt-anticipes', icon: 'pi-replay' },
@@ -28,10 +43,13 @@ export function useNavigation() {
 
   // ── Computed ──
   const activeTabId = computed(() => {
-    return (route.meta.tabId as string) || 'donnees-generales'
+    return (route.meta.tabId as string) || ''
   })
 
-  const activeSidebarId = computed(() => store.activeSidebarItem)
+  const activeSidebarId = computed(() => {
+    const section = route.meta.section as string
+    return section || store.activeSidebarItem
+  })
 
   // ── Actions ──
   function navigateToTab(tab: TabItem) {
@@ -41,7 +59,16 @@ export function useNavigation() {
   function selectSidebarItem(item: SidebarItem) {
     store.setActiveSidebarItem(item.id)
     if (item.route) {
-      router.push(item.route)
+      if (item.id === 'consultation') {
+        // Rediriger vers le dossier courant ou vers la recherche
+        if (store.dossierCourant?.id) {
+          router.push(`/consultation/${store.dossierCourant.id}/donnees-generales`)
+        } else {
+          router.push('/recherche')
+        }
+      } else {
+        router.push(item.route)
+      }
     }
   }
 

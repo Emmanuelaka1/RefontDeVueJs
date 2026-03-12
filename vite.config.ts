@@ -73,7 +73,7 @@ export default defineConfig(({ mode }) => {
       // Evite les problemes CORS en developpement
       proxy: {
         '/api': {
-          target: env.VITE_API_TARGET || 'http://localhost:8080',
+          target: env.VITE_API_TARGET || 'http://localhost:9088',
           changeOrigin: true,
           secure: false,
         },

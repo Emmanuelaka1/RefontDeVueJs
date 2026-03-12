@@ -26,12 +26,7 @@ export default defineConfig({
     // Cherche les fichiers de test dans tests/unit/ (*.test.ts ou *.spec.ts)
     include: ['tests/unit/**/*.{test,spec}.{ts,tsx}'],
 
-    // Configuration de la couverture de code (npm run test:unit:coverage)
-    coverage: {
-      provider: 'v8',                          // Moteur de couverture V8 (rapide, natif)
-      reporter: ['text', 'json', 'html'],       // Formats de rapport generes
-      include: ['src/**/*.{ts,vue}'],           // Fichiers sources a analyser
-      exclude: ['src/main.ts', 'src/types/**'], // Exclut le bootstrap et les types purs
-    },
+    // Couverture Istanbul (auto-detecte @vitest/coverage-istanbul)
+    coverage: { provider: 'istanbul' },
   },
 })

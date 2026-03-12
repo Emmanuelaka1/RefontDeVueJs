@@ -15,7 +15,7 @@ import { getPretService } from '@/services/pretService'
  */
 export const usePretStore = defineStore('pret', () => {
   // ── État ──────────────────────────────
-  const activeSidebarItem = ref<string>('consultation')
+  const activeSidebarItem = ref<string>('recherche')
   const activeTab = ref<string>('donnees-generales')
   const loading = ref<boolean>(false)
   const error = ref<string | null>(null)

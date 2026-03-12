@@ -1,0 +1,139 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot'         version '3.3.0'
+    id 'io.spring.dependency-management'  version '1.1.5'
+    id 'org.openapi.generator'            version '7.6.0'
+}
+
+group = 'com.arkea'
+version = '1.0.0-SNAPSHOT'
+sourceCompatibility = '21'
+
+springBoot {
+    mainClass = 'com.arkea.sgesapi.SgesapiApplication'
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+// ── Source sets : inclure le code généré ───────────────────────────
+sourceSets {
+    main {
+        java {
+            srcDirs 'src/main/java',
+                    "${buildDir}/generated-sources/thrift",
+                    "${buildDir}/java/generatedOpentopazeservice/src/main/java",
+                    "${buildDir}/java/generatedSigacPrets/src/main/java"
+        }
+    }
+}
+
+dependencies {
+    // Spring Boot
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // OpenAPI / Swagger UI
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
+    implementation 'io.swagger.core.v3:swagger-annotations:2.2.22'
+    implementation 'org.openapitools:jackson-databind-nullable:0.2.6'
+    implementation 'jakarta.validation:jakarta.validation-api'
+
+    // Apache Thrift (client uniquement)
+    implementation 'org.apache.thrift:libthrift:0.20.0'
+
+    // JWT
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
+    runtimeOnly   'io.jsonwebtoken:jjwt-impl:0.12.5'
+    runtimeOnly   'io.jsonwebtoken:jjwt-jackson:0.12.5'
+
+    // Tests
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+}
+
+// ── Génération Thrift ─────────────────────────────────────────────
+def thriftSrcDir = "${projectDir}/src/main/thrift"
+def thriftOutDir = "${buildDir}/generated-sources/thrift"
+
+task generateThrift {
+    description = 'Génère les classes Java depuis les fichiers .thrift'
+    group = 'build'
+
+    inputs.dir thriftSrcDir
+    outputs.dir thriftOutDir
+
+    doLast {
+        mkdir thriftOutDir
+        fileTree(thriftSrcDir).matching { include '**/*.thrift' }.each { file ->
+            exec {
+                commandLine 'thrift', '--gen', 'java', '-out', thriftOutDir, file.absolutePath
+            }
+        }
+        println 'Thrift generation done'
+    }
+}
+
+// ── Génération OpenAPI — sgesapi (Swagger 2.0) ───────────────────
+task generateOpentopazeservice(type: org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
+    generatorName = "spring"
+    library       = "spring-boot"
+    inputSpec     = "${projectDir}/src/main/resources/specs/openapi.json"
+    outputDir     = "${buildDir}/java/generatedOpentopazeservice"
+    validateSpec  = false
+    configOptions = [
+        apiPackage              : "com.arkea.sgesapi.dao.api.opentopazeservice",
+        modelPackage            : "com.arkea.sgesapi.dao.model.opentopazeservice",
+        "delegatePattern"       : "true",
+        "useSpringBoot3"        : "true",
+        "interfaceOnly"         : "false",
+        "dateLibrary"           : "java8",
+        "hideGenerationTimestamp": "true"
+    ]
+}
+
+// ── Génération OpenAPI — SIGAC Prêts (OpenAPI 3.0.3) ─────────────
+task generateSigacPrets(type: org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
+    generatorName = "spring"
+    library       = "spring-boot"
+    inputSpec     = "${projectDir}/openapi/sigac-prets.yaml"
+    outputDir     = "${buildDir}/java/generatedSigacPrets"
+    validateSpec  = false
+    configOptions = [
+        apiPackage              : "com.arkea.sgesapi.api.sigac",
+        modelPackage            : "com.arkea.sgesapi.model.sigac",
+        "delegatePattern"       : "true",
+        "useSpringBoot3"        : "true",
+        "interfaceOnly"         : "false",
+        "dateLibrary"           : "java8",
+        "hideGenerationTimestamp": "true"
+    ]
+}
+
+// ── Supprimer les fichiers doublons après génération ──────────────
+task cleanDuplicateGeneratedFiles {
+    dependsOn generateOpentopazeservice, generateSigacPrets
+    doLast {
+        // Supprimer les supporting files des deux générations pour éviter les doublons
+        delete "${buildDir}/java/generatedSigacPrets/src/main/java/org/openapitools"
+        delete "${buildDir}/java/generatedOpentopazeservice/src/main/java/org/openapitools"
+    }
+}
+
+// ── Ordre de build ────────────────────────────────────────────────
+compileJava.dependsOn cleanDuplicateGeneratedFiles
+// Thrift generation optionnelle si le binaire thrift est installé
+// tasks.generateOpentopazeservice.dependsOn generateThrift
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

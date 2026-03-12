@@ -1,0 +1,268 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "5A02 - sgesapi",
+    "version": "1.0.0",
+    "description": "API SaphirGestion — Consultation et recherche de dossiers de prêts"
+  },
+  "basePath": "/",
+  "paths": {
+    "/api/v1/recherche/dossiers": {
+      "post": {
+        "tags": ["RECHERCHE"],
+        "summary": "Recherche de dossiers de prêts",
+        "description": "Écran de recherche principal (home). Permet de rechercher des dossiers par critères multiples (emprunteur, numéro de prêt, EFS, etc.) et redirige vers la consultation du dossier sélectionné.",
+        "operationId": "rechercherDossiers",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "RechercheDossierRequest",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RechercheDossierRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Résultats de recherche",
+            "schema": {
+              "$ref": "#/definitions/RechercheDossierResponse"
+            }
+          },
+          "400": { "description": "Requête invalide" },
+          "401": { "description": "Authentification invalide" },
+          "500": { "description": "Erreur technique" }
+        }
+      }
+    },
+    "/api/v1/dossiers/{numeroPret}": {
+      "get": {
+        "tags": ["CONSULTATION"],
+        "summary": "Consultation d'un dossier de prêt",
+        "description": "Récupère les données générales et de prêt d'un dossier identifié par son numéro de prêt. Correspond à l'écran de consultation du dossier.",
+        "operationId": "consulterDossier",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "numeroPret",
+            "required": true,
+            "type": "string",
+            "description": "Numéro de prêt (ex: 2024-PAP-001547)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Données du dossier",
+            "schema": {
+              "$ref": "#/definitions/DossierConsultationResponse"
+            }
+          },
+          "404": { "description": "Dossier non trouvé" },
+          "401": { "description": "Authentification invalide" },
+          "500": { "description": "Erreur technique" }
+        }
+      }
+    },
+    "/rested/DonneesGeneriquesTopazeService/getInformationsMinimalesPersonnesTopaze": {
+      "post": {
+        "tags": ["DONNEESGENERIQUESTOPAZESERVICE"],
+        "summary": "Données minimales de personnes",
+        "description": "Récupération des données minimales d'une liste de personnes, qu'elles soient des PP ou des PM.",
+        "operationId": "getInformationsMinimalesPersonnesTopaze",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "GetInformationsMinimalesPersonnesTopazeRequest",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/GetInformationsMinimalesPersonnesTopazeRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Traitement OK",
+            "schema": {
+              "$ref": "#/definitions/GetInformationsMinimalesPersonnesTopazeResponse"
+            }
+          },
+          "400": { "description": "Requête invalide" },
+          "401": { "description": "Authentification invalide" },
+          "500": { "description": "Erreur technique" },
+          "520": { "description": "Exception levée par l'implémentation métier" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "RechercheDossierRequest": {
+      "type": "object",
+      "properties": {
+        "nomEmprunteur": {
+          "type": "string",
+          "description": "Nom de l'emprunteur (recherche partielle)"
+        },
+        "prenomEmprunteur": {
+          "type": "string",
+          "description": "Prénom de l'emprunteur"
+        },
+        "numeroPret": {
+          "type": "string",
+          "description": "Numéro de prêt (ex: 2024-PAP-001547)"
+        },
+        "efs": {
+          "type": "string",
+          "description": "Code EFS"
+        },
+        "structure": {
+          "type": "string",
+          "description": "Structure (ex: CIF Île-de-France)"
+        },
+        "codeEtat": {
+          "type": "string",
+          "description": "Code état du dossier (ex: 40 - En gestion)"
+        },
+        "codeNature": {
+          "type": "string",
+          "description": "Code nature du prêt (ex: PAP)"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32",
+          "default": 0,
+          "description": "Numéro de page (pagination)"
+        },
+        "taille": {
+          "type": "integer",
+          "format": "int32",
+          "default": 20,
+          "description": "Taille de page"
+        }
+      }
+    },
+    "RechercheDossierResponse": {
+      "type": "object",
+      "properties": {
+        "dossiers": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/DossierResume" }
+        },
+        "totalElements": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "taille": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "DossierResume": {
+      "type": "object",
+      "properties": {
+        "numeroPret": { "type": "string" },
+        "emprunteur": { "type": "string" },
+        "coEmprunteur": { "type": "string" },
+        "efs": { "type": "string" },
+        "structure": { "type": "string" },
+        "codeEtat": { "type": "string" },
+        "libelleEtat": { "type": "string" },
+        "codeNature": { "type": "string" },
+        "libelleNature": { "type": "string" },
+        "montantPret": { "type": "number", "format": "double" },
+        "tauxRemboursement": { "type": "number", "format": "double" }
+      }
+    },
+    "DossierConsultationResponse": {
+      "type": "object",
+      "properties": {
+        "donneesGenerales": { "$ref": "#/definitions/DonneesGenerales" },
+        "donneesPret": { "$ref": "#/definitions/DonneesPret" }
+      }
+    },
+    "DonneesGenerales": {
+      "type": "object",
+      "properties": {
+        "emprunteur": { "type": "string" },
+        "coEmprunteur": { "type": "string" },
+        "numeroPret": { "type": "string" },
+        "numeroContratSouscritProjet": { "type": "string" },
+        "numeroContratSouscritPret": { "type": "string" },
+        "efs": { "type": "string" },
+        "structure": { "type": "string" },
+        "codeEtat": { "type": "string" },
+        "libelleEtat": { "type": "string" },
+        "codeObjet": { "type": "string" },
+        "libelleObjet": { "type": "string" },
+        "codeNature": { "type": "string" },
+        "libelleNature": { "type": "string" }
+      }
+    },
+    "DonneesPret": {
+      "type": "object",
+      "properties": {
+        "montantPret": { "type": "number", "format": "double" },
+        "dureePret": { "type": "integer", "format": "int32", "description": "Durée en mois" },
+        "tauxRemboursement": { "type": "number", "format": "double" },
+        "tauxFranchise": { "type": "number", "format": "double" },
+        "tauxBonification": { "type": "number", "format": "double" },
+        "anticipation": { "type": "boolean" },
+        "typeAmortissement": { "type": "string" },
+        "outilInstruction": { "type": "string" },
+        "montantDebloque": { "type": "number", "format": "double" },
+        "montantDisponible": { "type": "number", "format": "double" },
+        "montantRA": { "type": "number", "format": "double" },
+        "encours": { "type": "number", "format": "double" },
+        "teg": { "type": "number", "format": "double" }
+      }
+    },
+    "GetInformationsMinimalesPersonnesTopazeRequest": {
+      "type": "object",
+      "required": ["identifiantsPersonnes"],
+      "properties": {
+        "identifiantsPersonnes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Liste des identifiants Topaze des personnes à récupérer"
+        }
+      }
+    },
+    "GetInformationsMinimalesPersonnesTopazeResponse": {
+      "type": "object",
+      "properties": {
+        "personnes": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/PersonneMinimale" }
+        }
+      }
+    },
+    "PersonneMinimale": {
+      "type": "object",
+      "properties": {
+        "identifiant":   { "type": "string" },
+        "nom":           { "type": "string" },
+        "prenom":        { "type": "string" },
+        "typePersonne":  { "type": "string", "enum": ["PP", "PM"] },
+        "dateNaissance": { "type": "string", "format": "date" }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "BearerAuth": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "Authorization"
+    }
+  },
+  "security": [{ "BearerAuth": [] }]
+}

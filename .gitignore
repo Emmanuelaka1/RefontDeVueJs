@@ -35,3 +35,8 @@ cypress/downloads/
 # Auto-generated
 components.d.ts
 src/types/api.d.ts
+/.claude
+/sgesapi/.gradle
+/sgesapi/.settings
+/sgesapi/bin
+/sgesapi/build

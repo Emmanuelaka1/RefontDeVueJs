@@ -1,5 +1,5 @@
 <template>
-  <nav class="app-tabs" data-testid="tabs-nav">
+  <nav v-if="tabs.length > 0" class="app-tabs" data-testid="tabs-nav">
     <button
       v-for="tab in tabs"
       :key="tab.id"

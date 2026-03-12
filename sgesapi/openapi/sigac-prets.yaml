@@ -1,0 +1,246 @@
+openapi: 3.0.3
+info:
+  title: SIGAC - API Gestion des Prets
+  description: API de consultation des dossiers de prets immobiliers
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+    description: Serveur local (via proxy Vite)
+
+paths:
+  /prets:
+    get:
+      summary: Lister les dossiers de prets
+      operationId: listerDossiers
+      tags:
+        - Prets
+      responses:
+        '200':
+          description: Liste des resumes de dossiers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceResponseDossierResumeList'
+
+  /prets/{id}:
+    get:
+      summary: Consulter un dossier de pret
+      operationId: getDossier
+      tags:
+        - Prets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identifiant du dossier (ex. DOSS-2024-001)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Dossier complet du pret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceResponseDossierPret'
+        '404':
+          description: Dossier introuvable
+
+components:
+  schemas:
+    DonneesGenerales:
+      type: object
+      properties:
+        emprunteur:
+          type: string
+        coEmprunteur:
+          type: string
+        noPret:
+          type: string
+        noContratSouscritProjet:
+          type: string
+        noContratSouscritPret:
+          type: string
+        efs:
+          type: string
+        structure:
+          type: string
+        codeEtat:
+          type: string
+        codeObjet:
+          type: string
+        codeNature:
+          type: string
+      required:
+        - emprunteur
+        - coEmprunteur
+        - noPret
+        - noContratSouscritProjet
+        - noContratSouscritPret
+        - efs
+        - structure
+        - codeEtat
+        - codeObjet
+        - codeNature
+
+    DonneesPret:
+      type: object
+      properties:
+        montantPret:
+          type: string
+        dureePret:
+          type: string
+        tauxRemboursement:
+          type: string
+        tauxFranchise:
+          type: string
+        tauxBonification:
+          type: string
+        anticipation:
+          type: string
+        typeAmortissement:
+          type: string
+        outilInstruction:
+          type: string
+        montantDebloque:
+          type: string
+        montantDisponible:
+          type: string
+        montantRA:
+          type: string
+        encours:
+          type: string
+        teg:
+          type: string
+      required:
+        - montantPret
+        - dureePret
+        - tauxRemboursement
+        - tauxFranchise
+        - tauxBonification
+        - anticipation
+        - typeAmortissement
+        - outilInstruction
+        - montantDebloque
+        - montantDisponible
+        - montantRA
+        - encours
+        - teg
+
+    DatesPret:
+      type: object
+      properties:
+        dateAcceptation:
+          type: string
+        dateAccord:
+          type: string
+        dateOuvertureCredit:
+          type: string
+        datePassageGestion:
+          type: string
+        dateEffet:
+          type: string
+        date1ereEcheance:
+          type: string
+        dateEffetRA:
+          type: string
+        dateEffetFP:
+          type: string
+        dateFinPret:
+          type: string
+        date1ereEcheance2:
+          type: string
+        datePrecedenteEcheance:
+          type: string
+        dateProchaineEcheance:
+          type: string
+        dateAbonnementPrecedent:
+          type: string
+        dateAbonnementSuivant:
+          type: string
+        dateTombeePrecedente:
+          type: string
+        dateTombeeSuivante:
+          type: string
+      required:
+        - dateAcceptation
+        - dateAccord
+        - dateOuvertureCredit
+        - datePassageGestion
+        - dateEffet
+        - date1ereEcheance
+        - dateEffetRA
+        - dateEffetFP
+        - dateFinPret
+        - date1ereEcheance2
+        - datePrecedenteEcheance
+        - dateProchaineEcheance
+        - dateAbonnementPrecedent
+        - dateAbonnementSuivant
+        - dateTombeePrecedente
+        - dateTombeeSuivante
+
+    DossierPret:
+      type: object
+      properties:
+        id:
+          type: string
+        donneesGenerales:
+          $ref: '#/components/schemas/DonneesGenerales'
+        donneesPret:
+          $ref: '#/components/schemas/DonneesPret'
+        dates:
+          $ref: '#/components/schemas/DatesPret'
+      required:
+        - id
+        - donneesGenerales
+        - donneesPret
+        - dates
+
+    DossierResume:
+      type: object
+      properties:
+        id:
+          type: string
+        noPret:
+          type: string
+        emprunteur:
+          type: string
+        montantPret:
+          type: string
+        codeEtat:
+          type: string
+      required:
+        - id
+        - noPret
+        - emprunteur
+        - montantPret
+        - codeEtat
+
+    ServiceResponseDossierPret:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/DossierPret'
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - data
+        - success
+
+    ServiceResponseDossierResumeList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DossierResume'
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - data
+        - success

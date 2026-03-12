@@ -19,6 +19,15 @@ Guide pas a pas de la configuration du projet Vue 3 + TypeScript + Vite.
 11. [Structure du projet](#11-structure-du-projet)
 12. [Integration du Dark Mode](#12-integration-du-dark-mode)
 13. [Architecture de la couche service](#13-architecture-de-la-couche-service)
+14. [Ecran de recherche (RechercheView)](#14-ecran-de-recherche-rechercheview)
+15. [Routing — Navigation entre recherche et consultation](#15-routing--navigation-entre-recherche-et-consultation)
+16. [Composable useNavigation](#16-composable-usenavigation)
+17. [Consultation du dossier (ConsultationView)](#17-consultation-du-dossier-consultationview)
+18. [Connexion frontend ↔ backend](#18-connexion-frontend--backend)
+19. [Store Pinia — Etat global](#19-store-pinia--etat-global)
+20. [Types TypeScript](#20-types-typescript)
+21. [Structure du projet mise a jour](#21-structure-du-projet-mise-a-jour)
+22. [Flux complet : de la recherche a la consultation](#22-flux-complet--de-la-recherche-a-la-consultation)
 
 ---
 
@@ -1527,4 +1536,671 @@ async modifierDossier(id: string, data: DossierPret) {
 
 ```bash
 npm run test:unit
+```
+
+---
+
+## 14. Ecran de recherche (RechercheView)
+
+L'ecran de recherche est la **page d'accueil** de l'application. Il permet de chercher des dossiers de prets par criteres multiples et de naviguer vers la consultation d'un dossier selectionne.
+
+### 14.1 - Vue d'ensemble
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  Header : "Recherche de dossiers"                        │
+├──────────────────────────────────────────────────────────┤
+│  Formulaire de recherche                                 │
+│  ┌──────────┐ ┌───────────┐ ┌────────┐ ┌──────────────┐ │
+│  │ N° de pret│ │ Emprunteur│ │  EFS   │ │ Etat (select)│ │
+│  └──────────┘ └───────────┘ └────────┘ └──────────────┘ │
+│  [Rechercher]  [Reinitialiser]                           │
+├──────────────────────────────────────────────────────────┤
+│  Tableau de resultats                                    │
+│  N° Pret  │ Emprunteur │ Montant  │ Etat      │ Action  │
+│  2024-PAP │ MARTIN JP  │ 250 000€ │ En gestion│   [eye] │
+│  2024-PAP │ DURAND M   │ 185 000€ │ Deblocage │   [eye] │
+└──────────────────────────────────────────────────────────┘
+```
+
+### 14.2 - Fichier `src/views/RechercheView.vue`
+
+**Template** — 4 zones distinctes :
+
+| Zone | Element HTML | Condition d'affichage |
+|------|-------------|----------------------|
+| Formulaire de recherche | `div.search-form` | Toujours visible |
+| Indicateur de chargement | `div.loading-indicator` | `v-if="loading"` |
+| Tableau de resultats | `div.resultats-section` | `v-if="!loading && resultats.length > 0"` |
+| Message "aucun resultat" | `div.no-results` | `v-if="!loading && rechercheLancee && resultats.length === 0"` |
+
+**Script** — donnees reactives :
+
+```ts
+const loading = ref(false)              // Indicateur de chargement
+const erreur = ref<string | null>(null) // Message d'erreur eventuel
+const rechercheLancee = ref(false)      // A-t-on deja lance une recherche ?
+const resultats = ref<DossierResume[]>([])  // Liste des resultats filtres
+
+const criteres = ref({
+  numeroPret: '',     // Filtre sur le numero de pret
+  emprunteur: '',     // Filtre sur le nom de l'emprunteur
+  efs: '',            // Filtre sur le code EFS
+  codeEtat: '',       // Filtre sur l'etat (select)
+})
+```
+
+**Fonctions principales** :
+
+| Fonction | Role |
+|----------|------|
+| `rechercher()` | Appelle `service.listerDossiers()` puis filtre cote client sur les criteres |
+| `reinitialiser()` | Remet tous les criteres a vide et vide les resultats |
+| `consulterDossier(id)` | Active la sidebar "consultation" et navigue vers `/consultation/{id}/donnees-generales` |
+| `badgeClass(codeEtat)` | Retourne la classe CSS du badge selon l'etat (gestion=vert, deblocage=jaune, instruction=bleu) |
+
+**Chargement initial** :
+
+```ts
+onMounted(() => {
+  rechercher()  // Charge et affiche tous les dossiers au montage
+})
+```
+
+Au demarrage, `rechercher()` est appele sans critere, ce qui affiche tous les dossiers disponibles.
+
+### 14.3 - Filtrage cote client
+
+La recherche fonctionne en **deux etapes** :
+
+1. **Recuperation** : `service.listerDossiers()` charge tous les dossiers depuis le backend (`GET /api/v1/prets`)
+2. **Filtrage local** : les resultats sont filtres en JavaScript selon les criteres saisis
+
+```ts
+resultats.value = response.data.filter((d) => {
+  if (criteres.value.numeroPret &&
+      !d.noPret.toLowerCase().includes(criteres.value.numeroPret.toLowerCase())) {
+    return false
+  }
+  if (criteres.value.emprunteur &&
+      !d.emprunteur.toLowerCase().includes(criteres.value.emprunteur.toLowerCase())) {
+    return false
+  }
+  if (criteres.value.codeEtat &&
+      !d.codeEtat.startsWith(criteres.value.codeEtat)) {
+    return false
+  }
+  return true
+})
+```
+
+| Critere | Type de filtre | Detail |
+|---------|---------------|--------|
+| N° de pret | `includes` insensible a la casse | Recherche partielle sur `noPret` |
+| Emprunteur | `includes` insensible a la casse | Recherche partielle sur `emprunteur` |
+| Etat | `startsWith` | Correspondance sur le debut du code etat (ex: "40" matche "40 - En gestion") |
+| EFS | Non filtre cote client | Le champ est present mais le filtrage n'est pas encore implemente |
+
+> **Note** : le filtrage cote client convient pour un petit nombre de dossiers. Pour un gros volume, il faudra passer les criteres au backend via query params ou body.
+
+### 14.4 - Navigation vers la consultation
+
+Quand l'utilisateur clique sur une ligne ou sur le bouton oeil :
+
+```ts
+function consulterDossier(id: string) {
+  store.setActiveSidebarItem('consultation')    // Met a jour la sidebar
+  router.push(`/consultation/${id}/donnees-generales`)  // Navigate vers la consultation
+}
+```
+
+Le `@click` est a la fois sur la ligne (`<tr>`) et sur le bouton (`<button @click.stop>`). Le `.stop` empeche le double declenchement.
+
+### 14.5 - Badges d'etat colores
+
+Les badges affichent l'etat du dossier avec un code couleur :
+
+| Code etat | Classe CSS | Couleur texte | Couleur fond |
+|-----------|-----------|---------------|--------------|
+| 40 (gestion) | `badge-gestion` | `$success` (vert) | `$success-light` |
+| 30 (deblocage) | `badge-deblocage` | `$warning` (jaune) | `$warning-light` |
+| 20 (instruction) | `badge-instruction` | `$info` (bleu) | `$info-light` |
+
+---
+
+## 15. Routing — Navigation entre recherche et consultation
+
+### 15.1 - Arbre des routes
+
+Le router (`src/router/index.ts`) definit la navigation complete de l'application :
+
+```
+/                        → redirect → /recherche
+/recherche               → RechercheView (page d'accueil)
+/consultation/:id        → redirect → /consultation/:id/donnees-generales
+  /donnees-generales     → ConsultationView
+  /donnees-financieres   → DonneesFinancieresView
+  /paliers               → PaliersView
+  /domiciliation         → DomiciliationView
+/consultation            → redirect → /recherche (sans ID = retour recherche)
+/deblocage               → DeblocageView
+/rbt-anticipes           → RbtAnticipesView
+/*                       → redirect → /recherche (catch-all)
+```
+
+### 15.2 - Routes parametrees (`:id`)
+
+La route `/consultation/:id` utilise un **parametre dynamique** pour identifier le dossier a consulter :
+
+```ts
+{
+  path: '/consultation/:id',
+  name: 'ConsultationDossier',
+  component: () => import('@/layouts/MainLayout.vue'),
+  redirect: (to) => `/consultation/${to.params.id}/donnees-generales`,
+  children: [
+    {
+      path: 'donnees-generales',
+      name: 'DonneesGenerales',
+      component: () => import('@/views/ConsultationView.vue'),
+      meta: { title: 'Donnees generales', tabId: 'donnees-generales', section: 'consultation' },
+    },
+    // ... autres onglets
+  ],
+}
+```
+
+| Propriete | Role |
+|-----------|------|
+| `:id` | Parametre dynamique extrait de l'URL (ex: `DOSS-2024-001`) |
+| `redirect: (to) => ...` | Redirige automatiquement vers l'onglet "donnees generales" |
+| `children` | Sous-routes correspondant aux onglets de la consultation |
+| `meta.section` | Identifie la section (utilisee par le composable `useNavigation`) |
+| `meta.tabId` | Identifie l'onglet actif (pour le surlignage dans AppTabs) |
+
+### 15.3 - Guard de titre
+
+Un guard global met a jour le titre de la page a chaque navigation :
+
+```ts
+router.beforeEach((to) => {
+  const title = (to.meta.title as string) || 'Gestion des Prets'
+  document.title = `${title} - SIGAC`
+})
+```
+
+Resultat : l'onglet du navigateur affiche "Donnees generales - SIGAC" ou "Recherche - SIGAC".
+
+### 15.4 - Lazy loading des vues
+
+Toutes les vues sont importees via `() => import(...)` (import dynamique). Vite cree un chunk JavaScript separe pour chaque vue, charge uniquement quand l'utilisateur navigue vers cette route.
+
+```ts
+component: () => import('@/views/RechercheView.vue')   // Chunk charge au 1er acces
+```
+
+Avantage : le bundle initial est leger, les vues peu utilisees ne sont chargees que si necessaire.
+
+---
+
+## 16. Composable `useNavigation`
+
+Le composable `src/composables/useNavigation.ts` centralise la logique de navigation (sidebar + onglets).
+
+### 16.1 - Responsabilites
+
+| Responsabilite | Detail |
+|---------------|--------|
+| Tabs dynamiques | Affiche les onglets uniquement en section `consultation`, avec l'ID du dossier dans l'URL |
+| Sidebar | 4 items : Recherche, Consultation, Deblocage, Rbt anticipes |
+| Tab actif | Determine par `route.meta.tabId` |
+| Sidebar actif | Determine par `route.meta.section` |
+
+### 16.2 - Tabs dynamiques (computed)
+
+```ts
+const tabs = computed<TabItem[]>(() => {
+  const section = route.meta.section as string
+  if (section === 'consultation') {
+    const dossierId = route.params.id as string
+    return consultationTabs.map((t) => ({
+      ...t,
+      route: `/consultation/${dossierId}/${t.route}`,
+    }))
+  }
+  return []   // Pas d'onglets en dehors de la consultation
+})
+```
+
+| Situation | Tabs retournes |
+|-----------|---------------|
+| `/recherche` | `[]` (aucun onglet) |
+| `/consultation/DOSS-2024-001/donnees-generales` | 4 onglets avec routes resolues (`/consultation/DOSS-2024-001/donnees-generales`, etc.) |
+| `/deblocage` | `[]` (aucun onglet) |
+
+Le composant `AppTabs.vue` utilise `v-if="tabs.length > 0"` pour masquer la barre d'onglets quand il n'y en a pas.
+
+### 16.3 - Sidebar items
+
+```ts
+const sidebarItems: SidebarItem[] = [
+  { id: 'recherche',    label: 'Recherche',    route: '/recherche',    icon: 'pi-search' },
+  { id: 'consultation', label: 'Consultation', route: '/consultation', icon: 'pi-file-edit' },
+  { id: 'deblocage',    label: 'Deblocage',    route: '/deblocage',    icon: 'pi-unlock' },
+  { id: 'rbt-anticipes',label: 'Rbt anticipes',route: '/rbt-anticipes',icon: 'pi-replay' },
+]
+```
+
+### 16.4 - Navigation intelligente
+
+Cliquer sur "Consultation" dans la sidebar a un comportement conditionnel :
+
+```ts
+function selectSidebarItem(item: SidebarItem) {
+  store.setActiveSidebarItem(item.id)
+  if (item.id === 'consultation') {
+    if (store.dossierCourant?.id) {
+      // Un dossier est charge → aller sur sa consultation
+      router.push(`/consultation/${store.dossierCourant.id}/donnees-generales`)
+    } else {
+      // Pas de dossier → retour a la recherche
+      router.push('/recherche')
+    }
+  } else {
+    router.push(item.route)
+  }
+}
+```
+
+| Etat | Clic sur "Consultation" |
+|------|------------------------|
+| Dossier DOSS-2024-001 charge | Navigue vers `/consultation/DOSS-2024-001/donnees-generales` |
+| Aucun dossier charge | Redirige vers `/recherche` |
+
+---
+
+## 17. Consultation du dossier (ConsultationView)
+
+### 17.1 - Chargement depuis l'URL
+
+La vue `ConsultationView.vue` charge le dossier a partir du parametre `:id` de l'URL :
+
+```ts
+async function chargerDepuisRoute() {
+  const id = route.params.id as string
+  if (id && (!store.dossierCourant || store.dossierCourant.id !== id)) {
+    await store.chargerDossier(id)
+  }
+}
+
+// Au montage
+onMounted(() => {
+  chargerDepuisRoute()
+})
+
+// Si l'ID change (navigation entre dossiers)
+watch(() => route.params.id, () => {
+  chargerDepuisRoute()
+})
+```
+
+| Situation | Comportement |
+|-----------|-------------|
+| 1er acces `/consultation/DOSS-2024-001/...` | `chargerDossier("DOSS-2024-001")` via `onMounted` |
+| Navigation de DOSS-001 vers DOSS-002 | `chargerDossier("DOSS-2024-002")` via `watch` |
+| Retour sur le meme dossier deja charge | Pas de rechargement (condition `store.dossierCourant.id !== id`) |
+
+### 17.2 - Appel API dans le store
+
+Le store Pinia effectue l'appel API :
+
+```ts
+async function chargerDossier(id: string) {
+  loading.value = true
+  error.value = null
+  try {
+    const service = await getPretService()
+    const response = await service.getDossier(id)     // GET /api/v1/prets/{id}
+    if (response.success) {
+      appliquerDossier(response.data)                 // Remplit les reactifs
+    } else {
+      error.value = response.message || 'Erreur lors du chargement'
+    }
+  } catch (e) {
+    error.value = 'Erreur lors du chargement du dossier'
+  } finally {
+    loading.value = false
+  }
+}
+```
+
+La fonction `appliquerDossier()` copie les donnees de la reponse API dans les objets reactifs du store :
+
+```ts
+function appliquerDossier(dossier: DossierPret) {
+  dossierCourant.value = dossier
+  Object.assign(donneesGenerales, dossier.donneesGenerales)
+  Object.assign(donneesPret, dossier.donneesPret)
+  Object.assign(datesPret, dossier.dates)
+}
+```
+
+### 17.3 - Sections affichees
+
+```html
+<template v-if="!store.loading && store.dossierCourant">
+  <SectionDonneesGenerales />
+  <SectionDonneesPret />
+  <SectionDates />
+</template>
+```
+
+Les sections ne s'affichent que quand le dossier est charge. En attendant, un spinner est affiche.
+
+### 17.4 - Bouton "Retour recherche"
+
+```ts
+function retourRecherche() {
+  router.push('/recherche')
+}
+```
+
+Permet de revenir a l'ecran de recherche sans perdre les criteres precedents (les criteres sont dans l'etat local de `RechercheView`, donc reinitialises au remontage).
+
+---
+
+## 18. Connexion frontend ↔ backend
+
+### 18.1 - Architecture de communication
+
+```
+┌──────────────┐      HTTP JSON        ┌──────────────┐
+│   Vue.js     │ ────────────────────►  │   Spring     │
+│   (port 3000)│ ◄──────────────────── │   (port 9088)│
+│              │  Proxy Vite /api/*     │              │
+└──────────────┘                       └──────────────┘
+```
+
+### 18.2 - Variables d'environnement
+
+**Fichier `.env.development`** (configuration actuelle) :
+
+```env
+VITE_API_MODE=http
+VITE_API_BASE_URL=/api/v1
+VITE_API_TARGET=http://localhost:9088
+```
+
+**Fichier `.env.example`** (template de reference) :
+
+```env
+VITE_API_MODE=mock
+VITE_API_BASE_URL=/api/v1
+VITE_API_TARGET=http://localhost:8080
+```
+
+| Variable | Valeur actuelle | Effet |
+|----------|----------------|-------|
+| `VITE_API_MODE` | `http` | La factory `getPretService()` instancie `HttpPretService` |
+| `VITE_API_BASE_URL` | `/api/v1` | Prefixe des URLs dans `HttpPretService.fetch()` |
+| `VITE_API_TARGET` | `http://localhost:9088` | Le proxy Vite redirige `/api/*` vers ce backend |
+
+### 18.3 - Proxy Vite en detail
+
+Configuration dans `vite.config.ts` :
+
+```ts
+server: {
+  port: 3000,
+  open: true,
+  proxy: {
+    '/api': {
+      target: env.VITE_API_TARGET || 'http://localhost:9088',
+      changeOrigin: true,
+      secure: false,
+    },
+  },
+}
+```
+
+**Flux complet d'une requete** :
+
+```
+1. Le navigateur envoie :
+   GET http://localhost:3000/api/v1/prets/DOSS-2024-001
+
+2. Le serveur Vite intercepte /api/* :
+   → Redirige vers http://localhost:9088/api/v1/prets/DOSS-2024-001
+   → Header Host modifie (changeOrigin: true)
+
+3. Spring Boot recoit la requete sur le port 9088 :
+   → PretsApiController.getDossier("DOSS-2024-001")
+   → Delegue a PretsApiDelegateImpl
+   → DossierService charge le dossier et resout les noms
+
+4. Spring Boot renvoie la reponse JSON :
+   {
+     "data": { "id": "DOSS-2024-001", "donneesGenerales": { ... } },
+     "success": true,
+     "message": "OK"
+   }
+
+5. Le proxy Vite retransmet la reponse au navigateur :
+   → Pas de probleme CORS car meme origine (localhost:3000)
+```
+
+### 18.4 - Basculer entre mock et backend
+
+| Mode | Fichier a modifier | Valeur |
+|------|-------------------|--------|
+| **Mock** (donnees locales) | `.env.development` | `VITE_API_MODE=mock` |
+| **HTTP** (backend reel) | `.env.development` | `VITE_API_MODE=http` |
+
+Pour basculer, modifier `VITE_API_MODE` et relancer `npm run dev`. Le changement est immediat grace au HMR de Vite.
+
+### 18.5 - Endpoints consommes
+
+| Endpoint | Methode | Utilise par | Reponse |
+|----------|---------|-------------|---------|
+| `/api/v1/prets` | GET | `RechercheView` via `listerDossiers()` | `ServiceResponseDossierResumeList` |
+| `/api/v1/prets/{id}` | GET | `pretStore.chargerDossier(id)` via `getDossier(id)` | `ServiceResponseDossierPret` |
+
+### 18.6 - Gestion des erreurs
+
+`HttpPretService` ne lance jamais d'exception. Il retourne toujours un `ServiceResponse` :
+
+```ts
+// Erreur HTTP (404, 500, etc.)
+{ data: null, success: false, message: "Erreur HTTP 404 : Not Found" }
+
+// Erreur reseau (serveur inaccessible)
+{ data: null, success: false, message: "Erreur reseau : Failed to fetch" }
+
+// Succes
+{ data: { ... }, success: true, message: "OK" }
+```
+
+Le composant ou le store verifie `response.success` pour afficher le contenu ou un message d'erreur.
+
+---
+
+## 19. Store Pinia — Etat global
+
+### 19.1 - Etat du store `pretStore`
+
+Le store (`src/stores/pretStore.ts`) centralise l'etat de l'application :
+
+| Propriete | Type | Defaut | Role |
+|-----------|------|--------|------|
+| `activeSidebarItem` | `ref<string>` | `'recherche'` | Element actif dans la sidebar |
+| `activeTab` | `ref<string>` | `'donnees-generales'` | Onglet actif |
+| `loading` | `ref<boolean>` | `false` | Indicateur de chargement en cours |
+| `error` | `ref<string \| null>` | `null` | Message d'erreur |
+| `sidebarCollapsed` | `ref<boolean>` | `false` | Sidebar repliee ou non |
+| `darkMode` | `ref<boolean>` | `false` | Mode sombre active ou non |
+| `currentUser` | `ref<UserInfo>` | `{ nom: 'Dupont', ... }` | Infos utilisateur connecte |
+| `dossierCourant` | `ref<DossierPret \| null>` | `null` | Dossier actuellement consulte |
+| `donneesGenerales` | `reactive<DonneesGenerales>` | `{ emprunteur: '', ... }` | Donnees generales du formulaire |
+| `donneesPret` | `reactive<DonneesPret>` | `{ montantPret: '', ... }` | Donnees financieres |
+| `datesPret` | `reactive<DatesPret>` | `{ dateAcceptation: '', ... }` | Dates du pret |
+| `sections` | `reactive<SectionState>` | `{ general: true, pret: true, dates: true }` | Etat ouvert/ferme des sections |
+
+### 19.2 - Actions du store
+
+| Action | Parametres | Effet |
+|--------|-----------|-------|
+| `chargerDossier(id)` | `string` | Appelle l'API `GET /api/v1/prets/{id}` et remplit le store |
+| `appliquerDossier(dossier)` | `DossierPret` | Copie les donnees dans les reactifs |
+| `resetFormulaire()` | — | Remet tous les champs a `''` |
+| `toggleSection(section)` | `'general' \| 'pret' \| 'dates'` | Ouvre/ferme une section |
+| `expandAllSections()` | — | Ouvre toutes les sections |
+| `collapseAllSections()` | — | Ferme toutes les sections |
+| `setActiveTab(tabId)` | `string` | Change l'onglet actif |
+| `setActiveSidebarItem(itemId)` | `string` | Change l'element sidebar actif |
+| `toggleSidebar()` | — | Replie/deplie la sidebar |
+| `toggleDarkMode()` | — | Bascule light/dark |
+
+---
+
+## 20. Types TypeScript
+
+### 20.1 - Types metier (`src/types/index.ts`)
+
+| Interface | Champs principaux | Utilisation |
+|-----------|-------------------|-------------|
+| `DonneesGenerales` | emprunteur, coEmprunteur, noPret, efs, structure, codeEtat, codeObjet, codeNature | Formulaire "Donnees generales" |
+| `DonneesPret` | montantPret, dureePret, tauxRemboursement, ... (13 champs) | Formulaire "Donnees du pret" |
+| `DatesPret` | dateAcceptation, dateAccord, dateFinPret, ... (16 champs) | Formulaire "Dates" |
+| `DossierPret` | id, donneesGenerales, donneesPret, dates | Dossier complet (reponse API) |
+| `DossierResume` | id, noPret, emprunteur, montantPret, codeEtat | Resume pour le tableau de recherche |
+| `ServiceResponse<T>` | data, success, message | Enveloppe generique de reponse API |
+| `PretService` | getDossier(id), listerDossiers() | Contrat de la couche service |
+| `UserInfo` | nom, prenom, initiales | Infos utilisateur (toolbar) |
+| `SidebarItem` | id, label, route, icon | Element de la sidebar |
+| `TabItem` | id, label, route | Onglet de navigation |
+| `SectionState` | general, pret, dates (booleans) | Etat ouvert/ferme des sections |
+
+### 20.2 - Types generes (`src/types/api.d.ts`)
+
+Ce fichier est **auto-genere** par `openapi-typescript` depuis `openapi/sigac-prets.yaml` :
+
+```bash
+npm run api:generate    # Regenere api.d.ts
+```
+
+Il contient les types exacts correspondant aux schemas OpenAPI du backend. C'est une **reference de compatibilite** pour s'assurer que les interfaces manuelles dans `index.ts` restent alignees avec le contrat d'API.
+
+---
+
+## 21. Structure du projet mise a jour
+
+```
+RefontDeVueJs/
+├── openapi/
+│   └── sigac-prets.yaml         ← Spec OpenAPI 3.0.3 (contrat API)
+├── src/
+│   ├── assets/
+│   │   ├── global.scss          ← Styles globaux
+│   │   ├── variables.scss       ← Variables SCSS ($primary, $gray-xxx, etc.)
+│   │   ├── dark-theme.scss      ← CSS custom properties light/dark
+│   │   └── icons/               ← SVG (collapse, expand)
+│   ├── components/
+│   │   ├── AppSidebar.vue       ← Sidebar (4 items : Recherche, Consultation, Deblocage, Rbt)
+│   │   ├── AppTabs.vue          ← Barre d'onglets (visible uniquement en consultation)
+│   │   ├── AppToolbar.vue       ← Toolbar superieure (titre, user, dark mode)
+│   │   ├── CollapsibleSection.vue ← Section depliable generique
+│   │   ├── FormField.vue        ← Champ de formulaire generique
+│   │   ├── SectionDonneesGenerales.vue ← Section "Donnees Generales"
+│   │   ├── SectionDonneesPret.vue      ← Section "Donnees du Pret"
+│   │   └── SectionDates.vue            ← Section "Dates"
+│   ├── composables/
+│   │   └── useNavigation.ts     ← Logique de navigation (tabs dynamiques + sidebar)
+│   ├── data/
+│   │   └── mockDossiers.ts      ← 3 dossiers fictifs pour le mode mock
+│   ├── layouts/
+│   │   └── MainLayout.vue       ← Layout principal (sidebar + toolbar + content)
+│   ├── router/
+│   │   └── index.ts             ← Routes (recherche, consultation/:id, deblocage, etc.)
+│   ├── services/
+│   │   ├── pretService.ts       ← Factory singleton (mock ou http selon VITE_API_MODE)
+│   │   ├── pretService.mock.ts  ← Implementation mock (donnees locales, delay 400ms)
+│   │   └── pretService.http.ts  ← Implementation HTTP (fetch vers /api/v1)
+│   ├── stores/
+│   │   └── pretStore.ts         ← Store Pinia (etat global, chargement dossier)
+│   ├── types/
+│   │   ├── index.ts             ← Interfaces TypeScript (DossierPret, DonneesGenerales, etc.)
+│   │   └── api.d.ts             ← Types auto-generes depuis sigac-prets.yaml
+│   ├── views/
+│   │   ├── RechercheView.vue    ← PAGE D'ACCUEIL : recherche + tableau de resultats
+│   │   ├── ConsultationView.vue ← Consultation d'un dossier (charge depuis route :id)
+│   │   ├── DeblocageView.vue    ← Deblocage (placeholder)
+│   │   ├── DomiciliationView.vue← Domiciliation (placeholder)
+│   │   ├── DonneesFinancieresView.vue ← Donnees financieres (placeholder)
+│   │   ├── PaliersView.vue      ← Paliers (placeholder)
+│   │   └── RbtAnticipesView.vue ← Remboursements anticipes (placeholder)
+│   ├── App.vue                  ← Composant racine
+│   ├── main.ts                  ← Point d'entree
+│   └── env.d.ts                 ← Types des variables d'environnement Vite
+├── tests/
+│   └── unit/
+│       ├── CollapsibleSection.test.ts
+│       ├── pretService.http.test.ts
+│       ├── pretService.mock.test.ts
+│       ├── pretStore.test.ts
+│       └── useNavigation.test.ts
+├── cypress/
+│   ├── e2e/                     ← Tests E2E
+│   ├── fixtures/                ← Donnees de test
+│   └── support/                 ← Helpers Cypress
+├── .env.development             ← VITE_API_MODE=http, VITE_API_TARGET=http://localhost:9088
+├── .env.example                 ← Template de reference
+├── package.json                 ← Dependencies et scripts
+├── vite.config.ts               ← Config Vite (proxy, SCSS, auto-import PrimeVue)
+├── vitest.config.ts             ← Config tests unitaires
+├── cypress.config.ts            ← Config tests E2E
+├── tsconfig.json                ← Config TypeScript
+└── documentation.md             ← CE FICHIER
+```
+
+---
+
+## 22. Flux complet : de la recherche a la consultation
+
+Resume du parcours utilisateur complet :
+
+```
+1. L'utilisateur arrive sur http://localhost:3000
+   → Le router redirige vers /recherche
+   → RechercheView est monte
+   → onMounted() appelle rechercher()
+   → getPretService() retourne HttpPretService (VITE_API_MODE=http)
+   → fetch('/api/v1/prets') via proxy Vite → Spring Boot :9088
+   → Le tableau affiche tous les dossiers
+
+2. L'utilisateur saisit "MARTIN" dans le champ Emprunteur et clique Rechercher
+   → rechercher() appelle listerDossiers()
+   → Le filtrage client garde uniquement les dossiers contenant "MARTIN"
+   → Le tableau se met a jour
+
+3. L'utilisateur clique sur la ligne "DOSS-2024-001"
+   → consulterDossier("DOSS-2024-001")
+   → store.setActiveSidebarItem('consultation')
+   → router.push('/consultation/DOSS-2024-001/donnees-generales')
+
+4. ConsultationView est monte
+   → chargerDepuisRoute() lit route.params.id = "DOSS-2024-001"
+   → store.chargerDossier("DOSS-2024-001")
+   → fetch('/api/v1/prets/DOSS-2024-001') via proxy → Spring Boot
+   → Spring Boot resout les noms emprunteur via PersonnesService
+   → La reponse JSON remplit le store
+   → Les 3 sections (Donnees Generales, Donnees Pret, Dates) s'affichent
+
+5. L'utilisateur clique sur l'onglet "Donnees financieres"
+   → useNavigation.navigateToTab()
+   → router.push('/consultation/DOSS-2024-001/donnees-financieres')
+   → DonneesFinancieresView s'affiche
+
+6. L'utilisateur clique "Retour recherche"
+   → router.push('/recherche')
+   → RechercheView est remonte, tous les dossiers sont recharges
 ```

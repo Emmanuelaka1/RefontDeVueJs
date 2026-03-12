@@ -5,19 +5,15 @@
       <div class="view-header-left">
         <i class="pi pi-file-edit header-icon" />
         <h2 class="view-title">Consultation du dossier</h2>
-        <span class="badge-status">Dossier en cours</span>
+        <span v-if="store.dossierCourant" class="badge-status">
+          {{ store.donneesGenerales.codeEtat || 'Dossier en cours' }}
+        </span>
       </div>
       <div class="view-header-right">
-        <select
-          v-if="dossierList.length > 0"
-          v-model="selectedDossierId"
-          class="dossier-select"
-          @change="onDossierChange"
-        >
-          <option v-for="d in dossierList" :key="d.id" :value="d.id">
-            {{ d.noPret }} — {{ d.emprunteur }}
-          </option>
-        </select>
+        <button class="btn-action" @click="retourRecherche">
+          <i class="pi pi-arrow-left" />
+          <span>Retour recherche</span>
+        </button>
         <button class="btn-action" @click="store.expandAllSections()">
           <i class="pi pi-angle-double-down" />
           <span>Tout ouvrir</span>
@@ -42,47 +38,45 @@
     </div>
 
     <!-- Sections -->
-    <SectionDonneesGenerales />
-    <SectionDonneesPret />
-    <SectionDates />
+    <template v-if="!store.loading && store.dossierCourant">
+      <SectionDonneesGenerales />
+      <SectionDonneesPret />
+      <SectionDates />
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import SectionDonneesGenerales from '@/components/SectionDonneesGenerales.vue'
 import SectionDonneesPret from '@/components/SectionDonneesPret.vue'
 import SectionDates from '@/components/SectionDates.vue'
 import { usePretStore } from '@/stores/pretStore'
-import { getPretService } from '@/services/pretService'
-import type { DossierResume } from '@/types'
 
+const route = useRoute()
+const router = useRouter()
 const store = usePretStore()
-const dossierList = ref<DossierResume[]>([])
-const selectedDossierId = ref<string>('')
 
-async function onDossierChange() {
-  if (selectedDossierId.value) {
-    await store.chargerDossier(selectedDossierId.value)
+function retourRecherche() {
+  router.push('/recherche')
+}
+
+async function chargerDepuisRoute() {
+  const id = route.params.id as string
+  if (id && (!store.dossierCourant || store.dossierCourant.id !== id)) {
+    await store.chargerDossier(id)
   }
 }
 
-onMounted(async () => {
-  try {
-    const service = await getPretService()
-    const listResponse = await service.listerDossiers()
-    if (listResponse.success) {
-      dossierList.value = listResponse.data
-    }
-    if (dossierList.value.length > 0) {
-      const idToLoad = store.dossierCourant?.id ?? dossierList.value[0].id
-      selectedDossierId.value = idToLoad
-      await store.chargerDossier(idToLoad)
-    }
-  } catch (e) {
-    store.error = 'Erreur lors de l\'initialisation'
-    console.error(e)
-  }
+// Charger le dossier au montage via l'API GET /api/v1/prets/{id}
+onMounted(() => {
+  chargerDepuisRoute()
+})
+
+// Recharger si le paramètre :id change (navigation entre dossiers)
+watch(() => route.params.id, () => {
+  chargerDepuisRoute()
 })
 </script>
 
@@ -136,26 +130,6 @@ onMounted(async () => {
 .view-header-right {
   display: flex;
   gap: $space-xs;
-}
-
-.dossier-select {
-  padding: $space-xs $space-md;
-  font-size: $font-size-sm;
-  font-family: inherit;
-  font-weight: $font-weight-medium;
-  color: var(--text-primary);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-main);
-  border-radius: $border-radius;
-  cursor: pointer;
-  transition: all $transition-base;
-  max-width: 320px;
-
-  &:hover,
-  &:focus {
-    border-color: var(--hover-text);
-    outline: none;
-  }
 }
 
 .btn-action {
