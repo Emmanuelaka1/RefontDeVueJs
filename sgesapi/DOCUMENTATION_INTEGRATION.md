@@ -23,7 +23,8 @@
 12. [Gestion des erreurs](#12-gestion-des-erreurs)
 13. [Données mock de démonstration](#13-données-mock-de-démonstration)
 14. [Environnements et profils Spring](#14-environnements-et-profils-spring)
-15. [Troubleshooting](#15-troubleshooting)
+15. [Tests unitaires et couverture](#15-tests-unitaires-et-couverture)
+16. [Troubleshooting](#16-troubleshooting)
 
 ---
 
@@ -94,7 +95,8 @@ gradlew.bat build
 3. Génère les classes Java depuis `sigac-prets.yaml` (OpenAPI 3.0.3 — API SIGAC)
 4. Supprime les fichiers doublons entre les deux générateurs (`cleanDuplicateGeneratedFiles`)
 5. Compile le code source
-6. Exécute les tests unitaires
+6. Exécute les 170 tests unitaires (JUnit 5)
+7. Génère le rapport de couverture JaCoCo (`build/reports/jacoco/test/html/index.html`)
 
 ### 3.3 Vérifier le build
 
@@ -371,7 +373,42 @@ sgesapi/
 │   │   └── thrift/
 │   │       └── topaze-personnes.thrift  ← Définition service Thrift
 │   └── test/
-│       └── java/.../DossierServiceTest.java
+│       └── java/com/arkea/sgesapi/
+│           ├── service/
+│           │   ├── PersonnesServiceTest.java      ← 16 tests
+│           │   └── DossierServiceTest.java        ← 13 tests
+│           ├── delegate/
+│           │   └── PretsApiDelegateImplTest.java   ← 11 tests
+│           ├── controller/
+│           │   ├── RechercheControllerTest.java    ← 5 tests (MockMvc standalone)
+│           │   └── ConsultationControllerTest.java ← 3 tests (MockMvc standalone)
+│           ├── security/
+│           │   ├── JwtServiceTest.java             ← 6 tests
+│           │   ├── JwtAuthFilterTest.java          ← 5 tests
+│           │   └── AuthControllerTest.java         ← 2 tests
+│           ├── dao/
+│           │   ├── impl/
+│           │   │   ├── DossierMockDaoTest.java     ← 21 tests
+│           │   │   ├── PersonnesMockDaoTest.java   ← 8 tests
+│           │   │   └── PersonnesThriftDaoTest.java  ← 2 tests
+│           │   └── model/
+│           │       ├── DossierConsultationDtoTest.java ← 6 tests
+│           │       ├── DossierResumeDtoTest.java       ← 4 tests
+│           │       ├── PersonneMinimaleDtoTest.java    ← 7 tests
+│           │       └── RechercheCriteriaTest.java      ← 5 tests
+│           ├── thrift/
+│           │   ├── AbstractThriftDAOTest.java          ← 11 tests
+│           │   ├── spring/
+│           │   │   └── AbstractCatalystThriftDAOTest.java ← 6 tests
+│           │   ├── pool/
+│           │   │   ├── TServiceClientPoolTest.java     ← 7 tests
+│           │   │   └── ThriftClientFactoryTest.java    ← 10 tests
+│           │   └── data/
+│           │       └── ResponseContextTest.java        ← 11 tests
+│           └── exception/
+│               ├── GlobalExceptionHandlerTest.java ← 5 tests
+│               ├── DAOExceptionTest.java           ← 4 tests
+│               └── DossierNotFoundExceptionTest.java ← 2 tests
 ```
 
 ### 7.2 Architecture en couches
@@ -893,7 +930,99 @@ SPRING_PROFILES_ACTIVE=prod java -jar sgesapi.jar
 
 ---
 
-## 15. Troubleshooting
+## 15. Tests unitaires et couverture
+
+### 15.1 Stack de test
+
+| Outil | Version | Rôle |
+|-------|---------|------|
+| JUnit 5 | 5.10.x (BOM Spring Boot) | Framework de tests |
+| Mockito | 5.x | Mocks et stubs |
+| MockMvc | Spring Test | Tests contrôleurs HTTP (mode standalone) |
+| JaCoCo | 0.8.12 | Mesure de couverture de code |
+
+### 15.2 Lancer les tests
+
+```bash
+# Tests seuls
+gradlew.bat test
+
+# Tests + rapport de couverture JaCoCo
+gradlew.bat clean build jacocoTestReport
+```
+
+Le rapport HTML est généré dans `build/reports/jacoco/test/html/index.html`.
+
+### 15.3 Résultats actuels
+
+- **170 tests** répartis dans **23 fichiers de tests**
+- **98% de couverture d'instructions** (69 instructions manquées sur 3 742)
+- **79% de couverture de branches**
+- Toutes les couches couvertes : services, contrôleurs, delegates, DAOs, Thrift, sécurité, DTOs, exceptions
+
+### 15.4 Organisation des tests par couche
+
+| Couche | Fichiers de test | Nb tests | Technique |
+|--------|-----------------|----------|-----------|
+| Services | PersonnesServiceTest, DossierServiceTest | 29 | Mockito (@ExtendWith) |
+| Delegates | PretsApiDelegateImplTest | 11 | Mockito |
+| Contrôleurs | RechercheControllerTest, ConsultationControllerTest | 8 | MockMvc standalone |
+| Sécurité | JwtServiceTest, JwtAuthFilterTest, AuthControllerTest | 13 | Mockito + MockMvc |
+| DAO Mock | DossierMockDaoTest, PersonnesMockDaoTest | 29 | Instanciation directe |
+| DAO Thrift | PersonnesThriftDaoTest | 2 | Instanciation directe |
+| Thrift infra | AbstractThriftDAOTest, AbstractCatalystThriftDAOTest | 17 | Mockito (TestThriftDAO) |
+| Pool Thrift | TServiceClientPoolTest, ThriftClientFactoryTest | 17 | Mockito + TestableFactory |
+| Thrift data | ResponseContextTest | 11 | Instanciation directe |
+| DTOs | *DtoTest (4 fichiers) | 22 | Instanciation directe |
+| Exceptions | DAOExceptionTest, DossierNotFoundExceptionTest, GlobalExceptionHandlerTest | 11 | Instanciation directe |
+
+### 15.5 Exclusions JaCoCo
+
+Les classes suivantes sont exclues de la couverture car elles sont générées ou purement déclaratives :
+
+- `com/arkea/sgesapi/model/**` — modèles OpenAPI générés (SIGAC)
+- `com/arkea/sgesapi/api/**` — interfaces API générées (SIGAC)
+- `com/arkea/sgesapi/dao/api/opentopazeservice/**` — modèles générés Topaze
+- `com/arkea/sgesapi/dao/model/opentopazeservice/**` — modèles générés Topaze
+- `org/openapitools/**` — utilitaires OpenAPI Generator
+- `com/arkea/sgesapi/config/**` — classes de configuration Spring (SecurityConfig, ThriftPoolConfig, UserConfig, OpenApiConfig)
+- `com/arkea/sgesapi/SgesapiApplication*` — point d'entrée Spring Boot
+
+### 15.6 Approche technique des tests contrôleurs
+
+Les tests de `RechercheController` et `ConsultationController` utilisent **MockMvc en mode standalone** plutôt que `@WebMvcTest`, afin d'éviter le chargement du contexte Spring Security complet (SecurityConfig → JwtAuthFilter → JwtService → propriété `jwt.secret`) :
+
+```java
+@BeforeEach
+void setUp() {
+    mockMvc = MockMvcBuilders
+        .standaloneSetup(controller)
+        .setControllerAdvice(new GlobalExceptionHandler())
+        .build();
+}
+```
+
+Cette approche teste le mapping HTTP, la sérialisation JSON et la gestion d'erreurs sans charger l'intégralité du contexte Spring.
+
+### 15.7 Test de la couche Thrift (AbstractThriftDAO)
+
+Le test de `AbstractThriftDAO.execute()` couvre tous les chemins du pattern execute/callback :
+
+- Succès avec retour du client au pool
+- `TTransportException` → invalidation du client + `DAOException`
+- `TException` → pas d'invalidation + `DAOException`
+- `DAOException` → relancée directement
+- `RuntimeException` → invalidation + `DAOException`
+- `borrowObject` échoue → `DAOException`
+- ResponseContext avec erreur métier → `DAOException` avec message Topaze
+- ResponseContext sans erreur → retour normal
+- `finalizeClient` échoue → `DAOException`
+
+Un POJO `ResponseWithContext` est utilisé dans les tests pour simuler une réponse Thrift contenant un `responseContext` accessible via `PropertyUtils`.
+
+---
+
+## 16. Troubleshooting
 
 ### Erreur : `jakarta.validation-api:3.0.3 not found`
 

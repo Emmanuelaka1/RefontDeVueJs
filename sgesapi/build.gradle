@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'jacoco'
     id 'org.springframework.boot'         version '3.3.0'
     id 'io.spring.dependency-management'  version '1.1.5'
     id 'org.openapi.generator'            version '7.6.0'
@@ -140,4 +141,60 @@ compileJava.dependsOn cleanDuplicateGeneratedFiles
 
 tasks.named('test') {
     useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+jacoco {
+    toolVersion = "0.8.12"
+}
+
+jacocoTestReport {
+    dependsOn test
+
+    // Exclure le code généré (OpenAPI, Thrift) du rapport de couverture
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                'com/arkea/sgesapi/model/**',
+                'com/arkea/sgesapi/api/**',
+                'com/arkea/sgesapi/dao/api/opentopazeservice/**',
+                'com/arkea/sgesapi/dao/model/opentopazeservice/**',
+                'org/openapitools/**',
+                'com/arkea/sgesapi/config/**',
+                'com/arkea/sgesapi/SgesapiApplication*'
+            ])
+        }))
+    }
+
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = true
+    }
+}
+
+jacocoTestCoverageVerification {
+    dependsOn jacocoTestReport
+
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                'com/arkea/sgesapi/model/**',
+                'com/arkea/sgesapi/api/**',
+                'com/arkea/sgesapi/dao/api/opentopazeservice/**',
+                'com/arkea/sgesapi/dao/model/opentopazeservice/**',
+                'org/openapitools/**',
+                'com/arkea/sgesapi/config/**',
+                'com/arkea/sgesapi/SgesapiApplication*'
+            ])
+        }))
+    }
+
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.70
+            }
+        }
+    }
 }

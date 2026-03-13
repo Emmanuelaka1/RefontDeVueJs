@@ -41,7 +41,7 @@
    - 8.4. Ordre de compilation
 9. [Le pattern DAO — Isoler Thrift du reste](#9-le-pattern-dao--isoler-thrift-du-reste)
    - 9.1. Interface DAO
-   - 9.2. Mock DAO (@Primary)
+   - 9.2. Mock DAO (@Profile("dev"))
    - 9.3. Thrift DAO (production)
    - 9.4. Basculer entre mock et production
 10. [La résolution des personnes — Cas concret complet](#10-la-résolution-des-personnes--cas-concret-complet)
@@ -1430,7 +1430,11 @@ Le choix entre invalider ou retourner le client est critique :
 
 ## 12. Tests sans serveur Thrift
 
-Le mock DAO permet de tester l'intégralité de l'application sans serveur Topaze :
+Le projet dispose de **170 tests unitaires** avec **98% de couverture d'instructions** (JaCoCo), tous exécutables sans connexion Topaze.
+
+### 12.1. Tests des services (couche métier)
+
+Le mock DAO permet de tester la logique métier sans serveur Topaze :
 
 ```java
 @ExtendWith(MockitoExtension.class)
@@ -1470,7 +1474,16 @@ class DossierServiceTest {
 }
 ```
 
-**On ne teste jamais le code Thrift généré lui-même** (c'est la responsabilité d'Apache Thrift). On teste uniquement notre logique métier avec le DAO mocké.
+### 12.2. Tests de l'infrastructure Thrift (sans réseau)
+
+La couche Thrift est testée via des classes internes de test et des mocks Mockito :
+
+- **AbstractThriftDAOTest** (11 tests) : utilise une `TestThriftDAO` interne qui expose `execute()`. Teste tous les chemins du multi-catch (TTransportException, TException, DAOException, RuntimeException), la branche ResponseContext (erreur métier, succès, absence), et l'échec de `finalizeClient`.
+- **AbstractCatalystThriftDAOTest** (6 tests) : vérifie `getClient()`, `finalizeClient()` (retour/invalidation/erreur), `getPool()`.
+- **TServiceClientPoolTest** (7 tests) : utilise une `TestableFactory` qui crée des mock clients sans connexion réseau. Teste le cycle borrow/return, invalidation, null-safety, et fermeture du pool.
+- **ThriftClientFactoryTest** (10 tests) : teste `wrap()`, `destroyObject()` (transport ouvert/fermé/null, client null), `validateObject()` (ouvert/fermé/null, client null).
+
+**On ne teste jamais le code Thrift généré lui-même** (c'est la responsabilité d'Apache Thrift). On teste notre logique métier avec le DAO mocké, et l'infrastructure Thrift (pool, factory, execute) avec des mocks réseau.
 
 ---
 
