@@ -20,7 +20,7 @@
    - 3.5. Génération de code Java
 4. [OpenAPI — Les fondamentaux](#4-openapi--les-fondamentaux)
    - 4.1. Qu'est-ce qu'OpenAPI ?
-   - 4.2. Swagger 2.0 vs OpenAPI 3.0.3
+   - 4.2. Swagger 2.0 vs OpenAPI 3.0.2
    - 4.3. Le pattern Delegate
    - 4.4. Génération de code Spring Boot
 5. [Le cycle de vie d'une requête complète](#5-le-cycle-de-vie-dune-requête-complète)
@@ -30,9 +30,9 @@
    - 6.3. PersonnesThriftDao — L'implémentation DAO (pattern Catalyst)
    - 6.4. Mapping Thrift struct ↔ DTO Java
 7. [OpenAPI dans sgesapi — Implémentation détaillée](#7-openapi-dans-sgesapi--implémentation-détaillée)
-   - 7.1. La spécification SIGAC (OpenAPI 3.0.3)
+   - 7.1. La spécification Loans API (OpenAPI 3.0.2)
    - 7.2. La spécification sgesapi legacy (Swagger 2.0)
-   - 7.3. PretsApiDelegateImpl — Le delegate
+   - 7.3. LoansApiDelegateImpl — Le delegate
    - 7.4. Mapping DTO interne → modèle généré
 8. [Configuration Gradle — Génération de code](#8-configuration-gradle--génération-de-code)
    - 8.1. Tâche generateThrift
@@ -81,13 +81,13 @@ sgesapi fait donc la **traduction** entre ces deux mondes.
 ```
 Frontend Vue.js
       │
-      │  GET /api/v1/prets/{id}    (HTTP JSON — défini par OpenAPI)
+      │  GET /loans/{id}    (HTTP JSON — défini par OpenAPI)
       ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                         sgesapi (Spring Boot)                   │
 │                                                                 │
 │  ┌─────────────────────┐                                        │
-│  │ PretsApiDelegateImpl │ ← implémente l'interface générée      │
+│  │ LoansApiDelegateImpl │ ← implémente l'interface générée      │
 │  │ (Delegate OpenAPI)   │   depuis sigac-prets.yaml             │
 │  └─────────┬───────────┘                                        │
 │            │                                                    │
@@ -336,23 +336,23 @@ Son rôle dans sgesapi : définir le **contrat HTTP** entre le frontend Vue.js e
 Frontend ◄── OpenAPI (contrat HTTP/JSON) ──► sgesapi ◄── Thrift (contrat TCP/binaire) ──► Topaze
 ```
 
-### 4.2. Swagger 2.0 vs OpenAPI 3.0.3
+### 4.2. Swagger 2.0 vs OpenAPI 3.0.2
 
 Le projet sgesapi utilise **deux spécifications** OpenAPI. Voici pourquoi et les différences :
 
-| Aspect | Swagger 2.0 (`openapi.json`) | OpenAPI 3.0.3 (`sigac-prets.yaml`) |
+| Aspect | Swagger 2.0 (`openapi.json`) | OpenAPI 3.0.2 (`sigac-prets.yaml`) |
 |--------|------------------------------|-------------------------------------|
 | Fichier | `src/main/resources/specs/openapi.json` | `openapi/sigac-prets.yaml` |
 | Format | JSON | YAML |
-| Rôle | Spec legacy (endpoints Topaze REST + recherche) | Spec SIGAC (endpoints prêts simplifiés) |
-| Endpoints | `POST /api/v1/recherche/dossiers`, `GET /api/v1/dossiers/{numeroPret}`, `POST /rested/DonneesGeneriquesTopazeService/...` | `GET /api/v1/prets`, `GET /api/v1/prets/{id}` |
+| Rôle | Spec legacy (endpoints Topaze REST + recherche) | Spec Loans API (endpoints prêts simplifiés) |
+| Endpoints | `POST /api/v1/recherche/dossiers`, `GET /api/v1/dossiers/{numeroPret}`, `POST /rested/DonneesGeneriquesTopazeService/...` | `GET /loans/{id}` |
 | Packages générés | `com.arkea.sgesapi.dao.api.opentopazeservice` + `com.arkea.sgesapi.dao.model.opentopazeservice` | `com.arkea.sgesapi.api.sigac` + `com.arkea.sgesapi.model.sigac` |
-| Delegate généré | `DonneesGeneriquesTopaze*ApiDelegate` + `ConsultationApiDelegate` | `PretsApiDelegate` |
+| Delegate généré | `DonneesGeneriquesTopaze*ApiDelegate` + `ConsultationApiDelegate` | `LoansApiDelegate` |
 
 **Pourquoi deux specs ?**
 
 - La spec **Swagger 2.0** (`openapi.json`) reflète l'API originale existante, proche du système legacy. Elle documente les anciens endpoints REST.
-- La spec **OpenAPI 3.0.3** (`sigac-prets.yaml`) est la nouvelle API simplifiée utilisée par le frontend Vue.js. C'est celle que le frontend consomme.
+- La spec **OpenAPI 3.0.2** (`sigac-prets.yaml`) est la nouvelle API simplifiée Loans API utilisée par le frontend Vue.js. C'est celle que le frontend consomme.
 
 ### 4.3. Le pattern Delegate
 
@@ -378,40 +378,40 @@ Concrètement, le générateur crée :
 ```java
 // FICHIER GÉNÉRÉ (ne pas toucher) — PretsApi.java
 @RestController
-@RequestMapping("/api/v1")
-public class PretsApiController implements PretsApi {
+@RequestMapping("/")
+public class LoansApiController implements LoansApi {
 
-    private final PretsApiDelegate delegate;
+    private final LoansApiDelegate delegate;
 
     // Injecte automatiquement votre implémentation
-    public PretsApiController(PretsApiDelegate delegate) {
+    public LoansApiController(LoansApiDelegate delegate) {
         this.delegate = delegate;
     }
 
-    @GetMapping("/prets/{id}")
-    public ResponseEntity<ServiceResponseDossierPret> getDossier(@PathVariable String id) {
-        return delegate.getDossier(id);  // ← délègue à VOTRE code
+    @GetMapping("/loans/{id}")
+    public ResponseEntity<CommonLoan> getLoan(@PathVariable String id) {
+        return delegate.getLoan(id);  // ← délègue à VOTRE code
     }
 }
 
-// FICHIER GÉNÉRÉ (ne pas toucher) — PretsApiDelegate.java
-public interface PretsApiDelegate {
-    default ResponseEntity<ServiceResponseDossierPret> getDossier(String id) {
+// FICHIER GÉNÉRÉ (ne pas toucher) — LoansApiDelegate.java
+public interface LoansApiDelegate {
+    default ResponseEntity<CommonLoan> getLoan(String id) {
         return ResponseEntity.status(501).build();  // Not Implemented par défaut
     }
 }
 ```
 
 ```java
-// VOTRE FICHIER (à modifier librement) — PretsApiDelegateImpl.java
+// VOTRE FICHIER (à modifier librement) — LoansApiDelegateImpl.java
 @Service
-public class PretsApiDelegateImpl implements PretsApiDelegate {
+public class LoansApiDelegateImpl implements LoansApiDelegate {
 
     @Override
-    public ResponseEntity<ServiceResponseDossierPret> getDossier(String id) {
-        // Votre logique métier ici !
-        DossierConsultationDto dto = dossierService.consulterDossier(id);
-        return ResponseEntity.ok(toSigacResponse(dto));
+    public ResponseEntity<CommonLoan> getLoan(String id) {
+        // id = numéro contrat souscrit prêt (ex: "PRT-2024-08-1547")
+        DossierConsultationDto dto = dossierService.consulterDossierParContratSouscrit(id);
+        return ResponseEntity.ok(toCommonLoan(dto));
     }
 }
 ```
@@ -424,14 +424,18 @@ Le plugin `openapi-generator` de Gradle génère :
 
 | Fichier généré | Rôle |
 |---|---|
-| `PretsApiController.java` | Controller Spring avec `@GetMapping`, `@PostMapping`, etc. |
-| `PretsApi.java` | Interface du controller avec les annotations OpenAPI |
-| `PretsApiDelegate.java` | Interface delegate que vous implémentez |
-| `DossierPret.java` | Modèle Java pour le schema `DossierPret` (avec getters/setters) |
-| `DonneesGenerales.java` | Modèle Java pour le schema `DonneesGenerales` |
-| `DonneesPret.java` | Modèle Java pour le schema `DonneesPret` |
+| `LoansApiController.java` | Controller Spring avec `@GetMapping`, `@PostMapping`, etc. |
+| `LoansApi.java` | Interface du controller avec les annotations OpenAPI |
+| `LoansApiDelegate.java` | Interface delegate que vous implémentez |
+| `CommonLoan.java` | Modèle Java pour le schema `CommonLoan` (avec getters/setters) |
+| `Participant.java` | Modèle Java pour le schema `Participant` |
+| `LoanType.java` | Modèle Java pour le schema `LoanType` |
+| `LoanState.java` | Modèle Java pour le schema `LoanState` |
+| `CurrentPayment.java` | Modèle Java pour le schema `CurrentPayment` |
+| `APIError.java` | Modèle Java pour les erreurs |
+| `APIMessage.java` | Modèle Java pour les messages |
 | `DatesPret.java` | Modèle Java pour le schema `DatesPret` |
-| `ServiceResponseDossierPret.java` | Wrapper de réponse |
+| `ObjectCode.java` | Modèle Java pour le schema `ObjectCode` |
 | ... | Tous les schemas définis dans `components/schemas` |
 
 ---
@@ -444,23 +448,23 @@ Prenons l'exemple concret d'un utilisateur qui consulte un dossier de prêt. Voi
 ÉTAPE 1 — L'utilisateur clique sur un dossier dans l'écran de recherche
 ──────────────────────────────────────────────────────────────────────────
 Le navigateur envoie :
-    GET http://localhost:9088/api/v1/prets/DOSS-2024-001
+    GET http://localhost:9088/loans/PRT-2024-08-1547
     Header: Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 
 ÉTAPE 2 — Le Controller généré (OpenAPI) reçoit la requête HTTP
 ──────────────────────────────────────────────────────────────────────────
-PretsApiController.getDossier("DOSS-2024-001")
-    → Délègue à PretsApiDelegateImpl.getDossier("DOSS-2024-001")
+LoansApiController.getLoan("PRT-2024-08-1547")
+    → Délègue à LoansApiDelegateImpl.getLoan("PRT-2024-08-1547")
 
 ÉTAPE 3 — Le Delegate appelle le Service métier
 ──────────────────────────────────────────────────────────────────────────
-PretsApiDelegateImpl.getDossier("DOSS-2024-001")
-    → dossierService.consulterDossier("DOSS-2024-001")
+LoansApiDelegateImpl.getLoan("PRT-2024-08-1547")
+    → dossierService.consulterDossierParContratSouscrit("PRT-2024-08-1547")
 
 ÉTAPE 4 — DossierService consulte le DAO
 ──────────────────────────────────────────────────────────────────────────
-DossierService.consulterDossier("DOSS-2024-001")
-    → dossierDao.consulterDossier("DOSS-2024-001")
+DossierService.consulterDossierParContratSouscrit("PRT-2024-08-1547")
+    → dossierDao.consulterDossierParContratSouscrit("PRT-2024-08-1547")
     → Retourne DossierConsultationDto avec :
         noEmprunteur = "PP-001547-E"      (identifiant Topaze)
         noCoEmprunteur = "PP-003892-C"    (identifiant Topaze)
@@ -488,13 +492,20 @@ DossierService.enrichirNomPersonnes(dossier)
 dossier.setEmprunteur("MARTIN Jean-Pierre")
 dossier.setCoEmprunteur("DURAND Marie")
 
-ÉTAPE 7 — Le Delegate convertit en modèle OpenAPI généré
+ÉTAPE 7 — Le Delegate convertit en modèle OpenAPI généré (CommonLoan)
 ──────────────────────────────────────────────────────────────────────────
-PretsApiDelegateImpl.toSigacResponse(dossier)
-    → Crée DonneesGenerales (modèle OpenAPI) depuis DossierConsultationDto
-    → Crée DonneesPret (modèle OpenAPI)
-    → Crée DatesPret (modèle OpenAPI)
-    → Assemble dans ServiceResponseDossierPret
+LoansApiDelegateImpl.toCommonLoan(dossier)
+    → Crée CommonLoan depuis DossierConsultationDto :
+        loan.setId(dto.getNumeroContratSouscritPret())
+        loan.setMasterContractId(dto.getNumeroContratSouscritProjet())
+        loan.setDuration(dto.getDureePret())
+        loan.setBorrowedAmount(dto.getMontantPret())
+    → Crée LoanType (codeNature + libelleNature)
+    → Crée LoanState (codeEtat + libelleEtat)
+    → Crée ObjectCode (codeObjet + libelleObjet)
+    → Crée Participant (emprunteur EMP + co-emprunteur COE)
+        splitNomPrenom("MARTIN Jean-Pierre") → lastName="MARTIN", firstName="Jean-Pierre"
+    → Retourne ResponseEntity.ok(commonLoan)
 
 ÉTAPE 8 — Spring Boot sérialise en JSON et renvoie la réponse HTTP
 ──────────────────────────────────────────────────────────────────────────
@@ -502,19 +513,21 @@ HTTP 200 OK
 Content-Type: application/json
 
 {
-  "data": {
-    "id": "DOSS-2024-001",
-    "donneesGenerales": {
-      "emprunteur": "MARTIN Jean-Pierre",
-      "coEmprunteur": "DURAND Marie",
-      "noPret": "2024-PAP-001547",
-      ...
-    },
-    "donneesPret": { ... },
-    "dates": { ... }
-  },
-  "success": true,
-  "message": "OK"
+  "id": "PRT-2024-08-1547",
+  "masterContractId": "PRJ-2024-08-1547",
+  "label": "Prêt à l'Accession à la Propriété",
+  "typeCode": "PAP",
+  "duration": 240,
+  "borrowedAmount": 250000.0,
+  "rate": 3.45,
+  "periodicity": "M",
+  "loanType": { "code": "PAP", "label": "Prêt à l'Accession à la Propriété" },
+  "loanState": { "code": "40", "label": "En gestion" },
+  "objectCode": { "code": "01", "label": "Acquisition ancien" },
+  "participants": [
+    { "roleCode": "EMP", "personNumber": "PP-001547-E", "lastName": "MARTIN", "firstName": "Jean-Pierre" },
+    { "roleCode": "COE", "personNumber": "PP-001547-C", "lastName": "MARTIN", "firstName": "Catherine" }
+  ]
 }
 ```
 
@@ -839,35 +852,23 @@ public class PersonnesThriftDao
 
 ## 7. OpenAPI dans sgesapi — Implémentation détaillée
 
-### 7.1. La spécification SIGAC (OpenAPI 3.0.3)
+### 7.1. La spécification Loans API (OpenAPI 3.0.2)
 
 Le fichier `openapi/sigac-prets.yaml` définit l'API consommée par le frontend :
 
 ```yaml
-openapi: 3.0.3
+openapi: 3.0.2
 info:
-  title: SIGAC - API Gestion des Prets
+  title: Loans API
   version: 1.0.0
 
 servers:
-  - url: /api/v1
+  - url: /
 
 paths:
-  /prets:
+  /loans/{id}:
     get:
-      summary: Lister les dossiers de prets
-      operationId: listerDossiers
-      responses:
-        '200':
-          description: Liste des resumes de dossiers
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServiceResponseDossierResumeList'
-
-  /prets/{id}:
-    get:
-      summary: Consulter un dossier de pret
+      summary: Récupérer les détails d'un prêt
       operationId: getDossier
       parameters:
         - name: id
@@ -877,46 +878,84 @@ paths:
             type: string
       responses:
         '200':
-          description: Dossier complet du pret
+          description: Détails complets du prêt
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ServiceResponseDossierPret'
+                $ref: '#/components/schemas/CommonLoan'
         '404':
-          description: Dossier introuvable
+          description: Prêt introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
 
 components:
   schemas:
-    DonneesGenerales:
-      type: object
-      properties:
-        emprunteur:
-          type: string
-        coEmprunteur:
-          type: string
-        noPret:
-          type: string
-        # ... (10 propriétés au total)
-
-    DossierPret:
+    CommonLoan:
       type: object
       properties:
         id:
           type: string
-        donneesGenerales:
-          $ref: '#/components/schemas/DonneesGenerales'
-        donneesPret:
-          $ref: '#/components/schemas/DonneesPret'
-        dates:
-          $ref: '#/components/schemas/DatesPret'
+        loanType:
+          $ref: '#/components/schemas/LoanType'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Participant'
+        currentPayment:
+          $ref: '#/components/schemas/CurrentPayment'
+        loanState:
+          $ref: '#/components/schemas/LoanState'
 
-    ServiceResponseDossierPret:
+    Participant:
       type: object
       properties:
-        data:
-          $ref: '#/components/schemas/DossierPret'
-        success:
-          type: boolean
+        name:
+          type: string
+        role:
+          type: string
+
+    LoanType:
+      type: object
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+
+    ObjectCode:
+      type: object
+      properties:
+        code:
+          type: string
+
+    LoanState:
+      type: object
+      properties:
+        status:
+          type: string
+
+    CurrentPayment:
+      type: object
+      properties:
+        amount:
+          type: number
+        dueDate:
+          type: string
+          format: date
+
+    APIError:
+      type: object
+      properties:
+        error:
+          $ref: '#/components/schemas/APIMessage'
+
+    APIMessage:
+      type: object
+      properties:
+        code:
+          type: string
         message:
           type: string
 ```
@@ -924,9 +963,9 @@ components:
 **Points clés :**
 
 - `operationId: getDossier` → devient le nom de la méthode Java `getDossier(String id)`.
-- `$ref: '#/components/schemas/DossierPret'` → référence un schéma réutilisable (comme un import).
+- `$ref: '#/components/schemas/CommonLoan'` → référence un schéma réutilisable (comme un import).
 - `required: true` sur un paramètre → Spring renvoie automatiquement 400 si absent.
-- Le wrapper `ServiceResponseDossierPret` uniformise toutes les réponses avec `data`, `success`, `message`.
+- Les schémas `CommonLoan`, `Participant`, `LoanType`, `LoanState`, `CurrentPayment` définissent la structure de la réponse.
 
 ### 7.2. La spécification sgesapi legacy (Swagger 2.0)
 
@@ -957,58 +996,122 @@ Le fichier `src/main/resources/specs/openapi.json` est l'ancienne spec (format S
 }
 ```
 
-**Différences clés entre Swagger 2.0 et OpenAPI 3.0.3 :**
+**Différences clés entre Swagger 2.0 et OpenAPI 3.0.2 :**
 
-| Aspect | Swagger 2.0 | OpenAPI 3.0.3 |
+| Aspect | Swagger 2.0 | OpenAPI 3.0.2 |
 |--------|-------------|---------------|
-| Mot-clé version | `"swagger": "2.0"` | `openapi: 3.0.3` |
+| Mot-clé version | `"swagger": "2.0"` | `openapi: 3.0.2` |
 | Schemas | `definitions` | `components/schemas` |
 | Body params | `"in": "body"` | `requestBody` avec `content` |
 | Format réponse | `schema` direct | `content: application/json: schema` |
 | Serveurs | `basePath` / `host` | `servers: [{ url: ... }]` |
 
-### 7.3. PretsApiDelegateImpl — Le delegate
+### 7.3. LoansApiDelegateImpl — Le delegate
 
 C'est le seul fichier OpenAPI que vous écrivez à la main. Tout le reste est généré :
 
 ```java
 @Service
-public class PretsApiDelegateImpl implements PretsApiDelegate {
+public class LoansApiDelegateImpl implements LoansApiDelegate {
 
+    private static final Logger log = LoggerFactory.getLogger(LoansApiDelegateImpl.class);
     private final DossierService dossierService;
 
-    public PretsApiDelegateImpl(DossierService dossierService) {
+    public LoansApiDelegateImpl(DossierService dossierService) {
         this.dossierService = dossierService;
     }
 
-    // GET /api/v1/prets → liste tous les dossiers
+    // GET /loans/{id} — id = numéro contrat souscrit prêt
     @Override
-    public ResponseEntity<ServiceResponseDossierResumeList> listerDossiers() {
-        RechercheCriteria criteria = RechercheCriteria.builder()
-                .page(0).taille(100).build();
-
-        List<DossierResumeDto> resultats = dossierService.rechercherDossiers(criteria);
-
-        // Conversion DTO interne → modèle OpenAPI généré
-        List<DossierResume> resumes = resultats.stream()
-                .map(this::toSigacResume)
-                .collect(Collectors.toList());
-
-        ServiceResponseDossierResumeList response = new ServiceResponseDossierResumeList();
-        response.setData(resumes);
-        response.setSuccess(true);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<CommonLoan> getLoan(String id) {
+        log.info("Loans API — getLoan id={}", id);
+        try {
+            DossierConsultationDto dto = dossierService.consulterDossierParContratSouscrit(id);
+            return ResponseEntity.ok(toCommonLoan(dto));
+        } catch (DossierNotFoundException e) {
+            log.warn("Dossier non trouvé : {}", id);
+            return ResponseEntity.notFound().build();   // HTTP 404
+        } catch (DAOException e) {
+            log.error("Erreur DAO lors de la consultation du dossier {}", id, e);
+            return ResponseEntity.internalServerError().build();  // HTTP 500
+        }
     }
 
-    // GET /api/v1/prets/{id} → consultation d'un dossier
-    @Override
-    public ResponseEntity<ServiceResponseDossierPret> getDossier(String id) {
-        try {
-            DossierConsultationDto dto = dossierService.consulterDossier(id);
-            return ResponseEntity.ok(toSigacResponse(dto));
-        } catch (DossierNotFoundException e) {
-            return ResponseEntity.notFound().build();   // HTTP 404
+    // Conversion DossierConsultationDto → CommonLoan (modèle OpenAPI généré)
+    CommonLoan toCommonLoan(DossierConsultationDto dto) {
+        CommonLoan loan = new CommonLoan();
+
+        // Identifiant = numéro contrat souscrit prêt
+        loan.setId(dto.getNumeroContratSouscritPret());
+        loan.setMasterContractId(dto.getNumeroContratSouscritProjet());
+
+        // Durée et montant
+        loan.setDuration(dto.getDureePret());
+        loan.setBorrowedAmount(toBigDecimal(dto.getMontantPret()));
+        loan.setRate(toBigDecimal(dto.getTauxRemboursement()));
+        loan.setAvailableAmount(toBigDecimal(dto.getMontantDisponible()));
+
+        // Périodicité — par défaut mensuelle
+        loan.setPeriodicity(CommonLoan.PeriodicityEnum.M);
+
+        // Libellé et type
+        loan.setLabel(dto.getLibelleNature());
+        loan.setTypeCode(dto.getCodeNature());
+
+        // LoanType, ObjectCode, LoanState
+        LoanType loanType = new LoanType();
+        loanType.setCode(dto.getCodeNature());
+        loanType.setLabel(dto.getLibelleNature());
+        loan.setLoanType(loanType);
+
+        ObjectCode objectCode = new ObjectCode();
+        objectCode.setCode(dto.getCodeObjet());
+        objectCode.setLabel(dto.getLibelleObjet());
+        loan.setObjectCode(objectCode);
+
+        LoanState loanState = new LoanState();
+        loanState.setCode(dto.getCodeEtat());
+        loanState.setLabel(dto.getLibelleEtat());
+        loan.setLoanState(loanState);
+
+        // Participants (emprunteur + co-emprunteur éventuel)
+        List<Participant> participants = new ArrayList<>();
+        if (dto.getNoEmprunteur() != null) {
+            Participant emp = new Participant();
+            emp.setPersonNumber(dto.getNoEmprunteur());
+            emp.setPersonFederation(dto.getEfs());
+            emp.setRoleCode("EMP");
+            splitNomPrenom(dto.getEmprunteur(), emp);
+            participants.add(emp);
         }
+        if (dto.getNoCoEmprunteur() != null) {
+            Participant coe = new Participant();
+            coe.setPersonNumber(dto.getNoCoEmprunteur());
+            coe.setPersonFederation(dto.getEfs());
+            coe.setRoleCode("COE");
+            splitNomPrenom(dto.getCoEmprunteur(), coe);
+            participants.add(coe);
+        }
+        loan.setParticipants(participants);
+
+        return loan;
+    }
+
+    // Sépare "NOM Prénom" en lastName/firstName
+    void splitNomPrenom(String fullName, Participant participant) {
+        if (fullName == null || fullName.isBlank()) return;
+        String trimmed = fullName.trim();
+        int firstSpace = trimmed.indexOf(' ');
+        if (firstSpace > 0) {
+            participant.setLastName(trimmed.substring(0, firstSpace));
+            participant.setFirstName(trimmed.substring(firstSpace + 1));
+        } else {
+            participant.setLastName(trimmed);
+        }
+    }
+
+    private BigDecimal toBigDecimal(Double value) {
+        return value != null ? BigDecimal.valueOf(value) : null;
     }
 }
 ```
@@ -1025,15 +1128,15 @@ Le delegate effectue une **double conversion** :
 │(binaire Thrift)│   │(POJO Java)       │   │                       │   │                  │
 └───────────────┘   └──────────────────┘   │                       │   │                  │
                                            │                       │   │                  │
-┌───────────────┐   ┌──────────────────┐   │  DonneesGenerales     │   │ "donneesGenerales│
-│ Thrift struct  │→  │DossierConsultation│→  │  (modèle généré)      │→  │   emprunteur:    │
-│ (dossier)      │   │Dto               │   │                       │   │   'MARTIN Jean'  │
-└───────────────┘   └──────────────────┘   │  ServiceResponse-     │   │                  │
-                                           │  DossierPret          │   │ success: true    │
-                         PersonnesThriftDao │  (wrapper généré)      │   │ message: 'OK'"   │
+┌───────────────┐   ┌──────────────────┐   │  Participant          │   │ "participants":  │
+│ Thrift struct  │→  │DossierConsultation│→  │  (modèle généré)      │→  │   roleCode: EMP  │
+│ (dossier)      │   │Dto               │   │                       │   │   lastName:      │
+└───────────────┘   └──────────────────┘   │  CommonLoan           │   │   'MARTIN'       │
+                                           │  (modèle généré)      │   │ id: 'PRT-2024..' │
+                         PersonnesThriftDao │  + LoanType, etc.      │   │ loanType: {...}  │
                          fait la 1ère      │                       │   │                  │
                          conversion        └───────────────────────┘   └──────────────────┘
-                                           PretsApiDelegateImpl         Jackson (auto)
+                                           LoansApiDelegateImpl         Jackson (auto)
                                            fait la 2ème conversion
 ```
 
@@ -1100,7 +1203,7 @@ task generateOpentopazeservice(type: org.openapitools.generator.gradle.plugin.ta
     ]
 }
 
-// Génération depuis sigac-prets.yaml (OpenAPI 3.0.3)
+// Génération depuis sigac-prets.yaml (OpenAPI 3.0.2)
 task generateSigacPrets(type: org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
     generatorName = "spring"
     library       = "spring-boot"
@@ -1124,19 +1227,7 @@ task generateSigacPrets(type: org.openapitools.generator.gradle.plugin.tasks.Gen
 Quand on génère deux specs OpenAPI, chacune produit des classes utilitaires identiques (dans `org.openapitools`). Il faut les supprimer d'une des deux :
 
 ```groovy
-task cleanDuplicateGeneratedFiles {
-    dependsOn generateOpentopazeservice, generateSigacPrets
-    doLast {
-        delete "${buildDir}/java/generatedSigacPrets/src/main/java/org/openapitools"
-        delete "${buildDir}/java/generatedOpentopazeservice/src/main/java/org/openapitools"
-    }
-}
-```
-
-### 8.4. Ordre de compilation
-
-```groovy
-// Le source set inclut le code généré
+// Exclusion des doublons via sourceSets (nouveau mode)
 sourceSets {
     main {
         java {
@@ -1144,12 +1235,18 @@ sourceSets {
                     "${buildDir}/generated-sources/thrift",
                     "${buildDir}/java/generatedOpentopazeservice/src/main/java",
                     "${buildDir}/java/generatedSigacPrets/src/main/java"
+            // Exclure les classes utilitaires en doublon d'une des deux générations
+            exclude 'org/openapitools/**'
         }
     }
 }
+```
 
-// Avant de compiler, on génère puis on nettoie les doublons
-compileJava.dependsOn cleanDuplicateGeneratedFiles
+### 8.4. Ordre de compilation
+
+```groovy
+// Avant de compiler, on génère le code depuis les deux specs
+compileJava.dependsOn generateOpentopazeservice, generateSigacPrets
 ```
 
 **Chaîne de build complète :**
@@ -1158,13 +1255,10 @@ compileJava.dependsOn cleanDuplicateGeneratedFiles
 gradle build
     │
     ├── generateOpentopazeservice   (OpenAPI → Java, spec Swagger 2.0)
-    ├── generateSigacPrets          (OpenAPI → Java, spec OpenAPI 3.0.3)
+    ├── generateSigacPrets          (OpenAPI → Java, spec OpenAPI 3.0.2)
     │       │
     │       ▼
-    ├── cleanDuplicateGeneratedFiles  (supprime les classes en double)
-    │       │
-    │       ▼
-    ├── compileJava                  (compile tout : notre code + code généré)
+    ├── compileJava                  (compile avec sourceSets exclude pour éviter les doublons)
     │       │
     │       ▼
     ├── test                         (tests unitaires)
@@ -1667,14 +1761,14 @@ Supposons qu'on doive exposer l'historique du dossier via un nouvel endpoint RES
 **Étape 2 — Régénérer le code OpenAPI**
 
 ```bash
-./gradlew generateSigacPrets cleanDuplicateGeneratedFiles
+./gradlew generateSigacPrets
 ```
 
-Le générateur met à jour `PretsApiDelegate` avec la nouvelle méthode :
+Le générateur met à jour `LoansApiDelegate` avec la nouvelle méthode :
 
 ```java
-// GÉNÉRÉ automatiquement dans PretsApiDelegate.java
-default ResponseEntity<ServiceResponseHistorique> getHistoriqueDossier(String id) {
+// GÉNÉRÉ automatiquement dans LoansApiDelegate.java
+default ResponseEntity<LoanHistory> getHistoriqueDossier(String id) {
     return ResponseEntity.status(501).build();
 }
 ```
@@ -1682,11 +1776,11 @@ default ResponseEntity<ServiceResponseHistorique> getHistoriqueDossier(String id
 **Étape 3 — Implémenter dans le delegate**
 
 ```java
-// PretsApiDelegateImpl.java — ajouter :
+// LoansApiDelegateImpl.java — ajouter :
 
 @Override
-public ResponseEntity<ServiceResponseHistorique> getHistoriqueDossier(String id) {
-    log.info("SIGAC — getHistoriqueDossier id={}", id);
+public ResponseEntity<LoanHistory> getHistoriqueDossier(String id) {
+    log.info("Loans API — getHistoriqueDossier id={}", id);
 
     List<EvenementDossierDto> evenements = dossierService.getHistoriqueDossier(id);
 
@@ -1716,17 +1810,17 @@ public ResponseEntity<ServiceResponseHistorique> getHistoriqueDossier(String id)
 ./gradlew clean build
 
 # Tester l'endpoint
-curl http://localhost:9088/api/v1/prets/DOSS-2024-001/historique
+curl http://localhost:9088/loans/DOSS-2024-001/historique
 ```
 
 **Résumé de la chaîne complète :**
 
 ```
-sigac-prets.yaml     →  gradle generateSigacPrets  →  PretsApiDelegate (généré)
-(vous modifiez ici)                                    PretsApiController (généré)
-                                                       EvenementDossier (modèle généré)
+sigac-prets.yaml     →  gradle generateSigacPrets  →  LoansApiDelegate (généré)
+(vous modifiez ici)                                    LoansApiController (généré)
+                                                       CommonLoan (modèle généré)
 
-                                                       PretsApiDelegateImpl (vous implémentez ici)
+                                                       LoansApiDelegateImpl (vous implémentez ici)
                                                             │
                                                             ▼
                                                        DossierService (votre logique)
@@ -1749,7 +1843,7 @@ sigac-prets.yaml     →  gradle generateSigacPrets  →  PretsApiDelegate (gén
 | **service** | Service Thrift — interface distante exposant des méthodes appelables via RPC |
 | **OpenAPI** | Spécification pour décrire des API REST (anciennement Swagger) |
 | **Swagger 2.0** | Ancienne version de la spécification OpenAPI (format JSON historique) |
-| **OpenAPI 3.0.3** | Version moderne de la spécification (format YAML, plus expressif) |
+| **OpenAPI 3.0.2** | Version moderne de la spécification (format YAML, plus expressif) |
 | **Delegate Pattern** | Stratégie de génération où le controller généré délègue à une interface que vous implémentez |
 | **DAO** | Data Access Object — couche d'abstraction pour l'accès aux données |
 | **DTO** | Data Transfer Object — objet de transfert entre couches (sans logique métier) |

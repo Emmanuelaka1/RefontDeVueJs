@@ -211,6 +211,15 @@ public class DossierMockDao implements IDossierDao {
                 .findFirst();
     }
 
+    @Override
+    public Optional<DossierConsultationDto> consulterDossierParContratSouscrit(String numeroContratSouscrit) throws DAOException {
+        log.debug("Consultation mock par contrat souscrit : {}", numeroContratSouscrit);
+        return dossiers.stream()
+                .filter(d -> d.getNumeroContratSouscritPret() != null
+                        && d.getNumeroContratSouscritPret().equalsIgnoreCase(numeroContratSouscrit))
+                .findFirst();
+    }
+
     // ── Filtrage par critères ─────────────────────────────────────
     private boolean matchCriteria(DossierConsultationDto d, RechercheCriteria c) {
         // Note: le filtrage par nom emprunteur se fait sur le champ résolu (emprunteur)

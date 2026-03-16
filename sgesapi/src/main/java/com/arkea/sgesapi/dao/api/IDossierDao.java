@@ -34,4 +34,13 @@ public interface IDossierDao {
      * @throws DAOException en cas d'erreur d'accès aux données
      */
     Optional<DossierConsultationDto> consulterDossier(String numeroPret) throws DAOException;
+
+    /**
+     * Consultation complète d'un dossier par numéro de contrat souscrit.
+     * Utilisé par la Loans API (GET /loans/{id}) où id = numéro contrat souscrit.
+     *
+     * @param numeroContratSouscrit numéro contrat souscrit prêt (ex: "PRT-2024-08-1547")
+     * @throws DAOException en cas d'erreur d'accès aux données
+     */
+    Optional<DossierConsultationDto> consulterDossierParContratSouscrit(String numeroContratSouscrit) throws DAOException;
 }

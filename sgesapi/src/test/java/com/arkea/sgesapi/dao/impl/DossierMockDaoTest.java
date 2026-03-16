@@ -206,6 +206,31 @@ class DossierMockDaoTest {
         assertNull(result.get().getNoCoEmprunteur());
     }
 
+    // ── consulterDossierParContratSouscrit ────────────────────────
+
+    @Test
+    void consulterDossierParContratSouscrit_existant_retourneDossier() throws DAOException {
+        Optional<DossierConsultationDto> result = dao.consulterDossierParContratSouscrit("PRT-2024-08-1547");
+
+        assertTrue(result.isPresent());
+        assertEquals("PRT-2024-08-1547", result.get().getNumeroContratSouscritPret());
+        assertEquals("2024-PAP-001547", result.get().getNumeroPret());
+    }
+
+    @Test
+    void consulterDossierParContratSouscrit_inexistant_retourneVide() throws DAOException {
+        Optional<DossierConsultationDto> result = dao.consulterDossierParContratSouscrit("INEXISTANT");
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void consulterDossierParContratSouscrit_caseInsensitive() throws DAOException {
+        Optional<DossierConsultationDto> result = dao.consulterDossierParContratSouscrit("prt-2024-08-1547");
+
+        assertTrue(result.isPresent());
+    }
+
     // ── Filtrage par prenomEmprunteur et nomEmprunteur ─────────────
 
     @Test

@@ -1,246 +1,337 @@
-openapi: 3.0.3
+openapi: 3.0.2
 info:
-  title: SIGAC - API Gestion des Prets
-  description: API de consultation des dossiers de prets immobiliers
+  title: 5A02 - sgesapi
   version: 1.0.0
-
-servers:
-  - url: /api/v1
-    description: Serveur local (via proxy Vite)
-
+  description: API SaphirGestion
 paths:
-  /prets:
+  /loans/{id}:
     get:
-      summary: Lister les dossiers de prets
-      operationId: listerDossiers
       tags:
-        - Prets
-      responses:
-        '200':
-          description: Liste des resumes de dossiers
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServiceResponseDossierResumeList'
-
-  /prets/{id}:
-    get:
-      summary: Consulter un dossier de pret
-      operationId: getDossier
-      tags:
-        - Prets
+        - loans
+      summary: Return a loan detail
+      description: >-
+        Retrieve a loan from its ID.
+        Récupérer un crédit par son ID (numéro de contrat souscrit),
+        l'EFS étant déduit du JWT.
+      operationId: getLoan
       parameters:
         - name: id
           in: path
           required: true
-          description: Identifiant du dossier (ex. DOSS-2024-001)
+          description: >-
+            Topaze Contrat ID.
+
+            Numéro contrat souscrit.
           schema:
             type: string
+            pattern: "^[a-zA-Z0-9]{10}$"
+          examples:
+            NO-CTR-SCR:
+              value: DD04063627
       responses:
         '200':
-          description: Dossier complet du pret
+          description: >-
+            Get data for a loan.
+
+            Récupérer les données d'un crédit.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ServiceResponseDossierPret'
+                $ref: '#/components/schemas/CommonLoan'
+        '400':
+          description: >-
+            Missing or malformatted parameters, or syntax error.
+
+            Paramètres oubliés ou mal formatés, ou erreur de syntaxe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: >-
+            JWT not correctly provided or not feeded.
+
+            Le JWT n'est pas correctement alimenté ou pas alimenté du tout.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '404':
-          description: Dossier introuvable
+          description: >-
+            No loan found.
 
+            Crédit non trouvé.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
 components:
+  securitySchemes:
+    bearerAuth:
+      type: apiKey
+      name: Authorization
+      in: header
   schemas:
-    DonneesGenerales:
+    CommonLoan:
       type: object
-      properties:
-        emprunteur:
-          type: string
-        coEmprunteur:
-          type: string
-        noPret:
-          type: string
-        noContratSouscritProjet:
-          type: string
-        noContratSouscritPret:
-          type: string
-        efs:
-          type: string
-        structure:
-          type: string
-        codeEtat:
-          type: string
-        codeObjet:
-          type: string
-        codeNature:
-          type: string
-      required:
-        - emprunteur
-        - coEmprunteur
-        - noPret
-        - noContratSouscritProjet
-        - noContratSouscritPret
-        - efs
-        - structure
-        - codeEtat
-        - codeObjet
-        - codeNature
-
-    DonneesPret:
-      type: object
-      properties:
-        montantPret:
-          type: string
-        dureePret:
-          type: string
-        tauxRemboursement:
-          type: string
-        tauxFranchise:
-          type: string
-        tauxBonification:
-          type: string
-        anticipation:
-          type: string
-        typeAmortissement:
-          type: string
-        outilInstruction:
-          type: string
-        montantDebloque:
-          type: string
-        montantDisponible:
-          type: string
-        montantRA:
-          type: string
-        encours:
-          type: string
-        teg:
-          type: string
-      required:
-        - montantPret
-        - dureePret
-        - tauxRemboursement
-        - tauxFranchise
-        - tauxBonification
-        - anticipation
-        - typeAmortissement
-        - outilInstruction
-        - montantDebloque
-        - montantDisponible
-        - montantRA
-        - encours
-        - teg
-
-    DatesPret:
-      type: object
-      properties:
-        dateAcceptation:
-          type: string
-        dateAccord:
-          type: string
-        dateOuvertureCredit:
-          type: string
-        datePassageGestion:
-          type: string
-        dateEffet:
-          type: string
-        date1ereEcheance:
-          type: string
-        dateEffetRA:
-          type: string
-        dateEffetFP:
-          type: string
-        dateFinPret:
-          type: string
-        date1ereEcheance2:
-          type: string
-        datePrecedenteEcheance:
-          type: string
-        dateProchaineEcheance:
-          type: string
-        dateAbonnementPrecedent:
-          type: string
-        dateAbonnementSuivant:
-          type: string
-        dateTombeePrecedente:
-          type: string
-        dateTombeeSuivante:
-          type: string
-      required:
-        - dateAcceptation
-        - dateAccord
-        - dateOuvertureCredit
-        - datePassageGestion
-        - dateEffet
-        - date1ereEcheance
-        - dateEffetRA
-        - dateEffetFP
-        - dateFinPret
-        - date1ereEcheance2
-        - datePrecedenteEcheance
-        - dateProchaineEcheance
-        - dateAbonnementPrecedent
-        - dateAbonnementSuivant
-        - dateTombeePrecedente
-        - dateTombeeSuivante
-
-    DossierPret:
-      type: object
+      description: >-
+        Customer owned loan. Crédit détenu par un client.
       properties:
         id:
           type: string
-        donneesGenerales:
-          $ref: '#/components/schemas/DonneesGenerales'
-        donneesPret:
-          $ref: '#/components/schemas/DonneesPret'
-        dates:
-          $ref: '#/components/schemas/DatesPret'
-      required:
-        - id
-        - donneesGenerales
-        - donneesPret
-        - dates
+          pattern: "[a-zA-Z0-9]{10}"
+          example: AX12457845
+          description: >-
+            Numero contrat souscrit credit.
 
-    DossierResume:
+            Equivalent dans wsgestioncreditweb = numeroContratSouscrit
+            Equivalent dans P5APWSSG = Y5AWSG-NO-CTR-SCR
+        duration:
+          type: integer
+          minimum: 0
+          maximum: 999
+          example: 240
+          description: >-
+            Nombre initial de termes.
+
+            Initial payment number.
+
+            Equivalent dans wsgestioncreditweb = dureePret
+            Equivalent dans P5APWSSG = Y5AWSG-DUR-PRE
+        periodicity:
+          type: string
+          enum:
+            - M
+            - S
+            - T
+            - A
+          example: M
+          description: >-
+            Periodicity M Monthly / A Yearly / S Semi-annual / T Quarterly
+
+            Equivalent dans wsgestioncreditweb = codePeriodicite
+            Equivalent dans P5APWSSG = Y5AWSG-CD-PER-RBT
+        borrowedAmount:
+          type: number
+          minimum: 0
+          example: 158930
+          description: >-
+            Montant du nominal.
+
+            Nominal amount.
+
+            Equivalent dans wsgestioncreditweb = montantPret
+        startDate:
+          type: string
+          example: "2003-12-05T00:00:00.000Z"
+          description: >-
+            Contract start date.
+
+            Date de début de contrat.
+
+            Equivalent dans wsgestioncreditweb = dateDebutContrat
+            Equivalent dans P5APWSSG = Y5AWSG-DA-DBT-CTR
+        endDate:
+          type: string
+          example: "2033-05-22T00:00:00.000Z"
+          description: >-
+            Contract end date.
+
+            Date de fin de contrat.
+
+            Equivalent dans wsgestioncreditweb = dateFinContrat
+            Equivalent dans P5APWSSG = Y5AWSG-DA-FIN-CTR
+        rate:
+          type: number
+          example: 1.25
+          description: Taux débiteur annuel
+        label:
+          type: string
+          example: ALTIMMO FIX
+          description: Libellé du prêt
+        participants:
+          type: array
+          description: >-
+            Participants de type emprunteur, co-emprunteurs, cautions, tiers assurés.
+          items:
+            $ref: '#/components/schemas/Participant'
+        masterContractId:
+          type: string
+          pattern: "[a-zA-Z0-9]{10}"
+          description: Numero contrat maître souscrit credit
+        typeCode:
+          type: string
+          pattern: "[0-9]{5}"
+          description: >-
+            Type code of the loan (Topaze Contrat Catalogue code).
+
+            Equivalent dans wsgestioncreditweb = numeroContratCatalogue
+            Equivalent dans P5APWSSG = Y5AWSG-NO-CTR-CTL
+        technicalId:
+          type: string
+          pattern: "[a-zA-Z0-9]{21}"
+          description: >-
+            Technical ID (from Topaze Contrat).
+
+            Identifiant technique Topaze Contrat.
+
+            Equivalent dans wsgestioncreditweb = identifiantTechnique
+            Equivalent dans P5APWSSG = Y7HST5-IDT-TEC-APLI-01
+        loanType:
+          $ref: '#/components/schemas/LoanType'
+        objectCode:
+          $ref: '#/components/schemas/ObjectCode'
+        loanState:
+          $ref: '#/components/schemas/LoanState'
+        firstPaymentDate:
+          type: string
+          description: Date première échéance
+        loanOfferDate:
+          type: string
+          description: Date de l'offre de prêt
+        availableAmount:
+          type: number
+          example: 15879.5
+          description: >-
+            Available Amount.
+
+            Montant disponible.
+
+            Equivalent dans wsgestioncreditweb = montantDisponible
+            Equivalent dans P5APWSSG = Y5AWSG-MT-DSP
+        previousPaymentDate:
+          type: string
+          description: Date précédente échéance
+        nextPaymentDate:
+          type: string
+          description: >-
+            Date de la prochaine échéance.
+
+            Equivalent dans wsgestioncreditweb = dateProchaineEcheance
+            Equivalent dans P5APWSSG = Y5AWSG-DA-NXT-ECN
+        currentPayment:
+          $ref: '#/components/schemas/CurrentPayment'
+
+    Participant:
+      type: object
+      description: >-
+        Person who has a role on the contract. Personne ayant un rôle sur le contrat.
+      properties:
+        personFederation:
+          type: string
+          example: "03"
+          description: The EFS code. Le code EFS
+        personNumber:
+          type: string
+          example: "65879564"
+          description: Topaze Person Number. Numéro personne Topaze.
+        roleCode:
+          type: string
+          example: EMP
+          description: >-
+            Role code of the person on the contract. Values: EMP or COE.
+            Code rôle de la personne sur le contrat. Valeurs : EMP ou COE.
+        lastName:
+          type: string
+          example: DOE
+          description: Last Name of the person - Nom de la personne
+        firstName:
+          type: string
+          example: John
+          description: First Name of the person - Prénom de la personne
+
+    LoanType:
+      type: object
+      description: >-
+        Loan Type. See T5ATPRE for available values. Type de crédit.
+
+        Equivalent dans wsgestioncreditweb = typePret
+        Equivalent dans P5APWSSG = Y5AWSG-CD-TY-PRE
+      properties:
+        code:
+          type: string
+          example: "110309"
+          description: Code de type de crédit.
+        label:
+          type: string
+          example: PRET BIENVENUE
+          description: Libellé du type de crédit.
+
+    ObjectCode:
+      type: object
+      description: >-
+        Object Code.
+        Equivalent dans wsgestioncreditweb = natureOperation
+        Equivalent dans P5APWSSG = Y5AWSG-CD-OBJ-CRD
+      properties:
+        code:
+          type: string
+          example: AA
+          description: Objet du crédit.
+        label:
+          type: string
+          example: IMMO INCORPORELLES
+          description: Libellé de l'objet du crédit (issu de la T5A0900).
+
+    LoanState:
+      type: object
+      description: >-
+        Loan state. See T5AGEN0 for available values. État du crédit.
+        Voir la T5AGEN0 pour les valeurs disponibles.
+      properties:
+        code:
+          type: string
+          example: AA
+          description: Code d'état du crédit.
+        label:
+          type: string
+          example: EN COURS NORMALE
+          description: Libellé d'état du crédit.
+
+    CurrentPayment:
+      type: object
+      description: >-
+        Current payment if there is any. Échéance en cours s'il y en a.
+      properties:
+        capital:
+          type: number
+          description: Échéance en cours (Capital).
+        deferredInterests:
+          type: number
+          description: Échéance en cours (intérêts reportés).
+        total:
+          type: number
+          description: Somme des montants de l'échéance en cours.
+        interestsFeesAccessories:
+          type: number
+          description: Échéance en cours (intérêts, frais et accessoires).
+
+    APIError:
       type: object
       properties:
-        id:
+        httpcode:
+          type: number
+        fishTag:
           type: string
-        noPret:
+        url:
           type: string
-        emprunteur:
+        errordate:
           type: string
-        montantPret:
-          type: string
-        codeEtat:
-          type: string
-      required:
-        - id
-        - noPret
-        - emprunteur
-        - montantPret
-        - codeEtat
-
-    ServiceResponseDossierPret:
-      type: object
-      properties:
-        data:
-          $ref: '#/components/schemas/DossierPret'
-        success:
-          type: boolean
-        message:
-          type: string
-      required:
-        - data
-        - success
-
-    ServiceResponseDossierResumeList:
-      type: object
-      properties:
-        data:
+          format: date-time
+        errors:
           type: array
           items:
-            $ref: '#/components/schemas/DossierResume'
-        success:
-          type: boolean
+            $ref: '#/components/schemas/APIMessage'
+
+    APIMessage:
+      type: object
+      properties:
+        code:
+          type: string
+        level:
+          type: string
         message:
           type: string
-      required:
-        - data
-        - success
+
+security:
+  - bearerAuth: []

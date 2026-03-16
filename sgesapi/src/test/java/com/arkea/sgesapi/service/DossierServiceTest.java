@@ -162,6 +162,46 @@ class DossierServiceTest {
                 dossierService.compterDossiers(criteria));
     }
 
+    // ── consulterDossierParContratSouscrit ────────────────────────
+
+    @Test
+    void consulterDossierParContratSouscrit_existant_resoutPersonnes() throws DAOException {
+        DossierConsultationDto dossier = DossierConsultationDto.builder()
+                .numeroPret("2024-PAP-001547")
+                .numeroContratSouscritPret("PRT-2024-08-1547")
+                .noEmprunteur("PP-001547-E")
+                .noCoEmprunteur("PP-001547-C")
+                .montantPret(250000.00)
+                .build();
+
+        when(dossierDao.consulterDossierParContratSouscrit("PRT-2024-08-1547")).thenReturn(Optional.of(dossier));
+        when(personnesService.resoudreEmprunteurCoEmprunteur("PP-001547-E", "PP-001547-C"))
+                .thenReturn(new String[]{"MARTIN Jean-Pierre", "MARTIN Catherine"});
+
+        DossierConsultationDto result = dossierService.consulterDossierParContratSouscrit("PRT-2024-08-1547");
+
+        assertNotNull(result);
+        assertEquals("MARTIN Jean-Pierre", result.getEmprunteur());
+        assertEquals("MARTIN Catherine", result.getCoEmprunteur());
+    }
+
+    @Test
+    void consulterDossierParContratSouscrit_inexistant_lanceException() throws DAOException {
+        when(dossierDao.consulterDossierParContratSouscrit("INVALID")).thenReturn(Optional.empty());
+
+        assertThrows(DossierNotFoundException.class, () ->
+                dossierService.consulterDossierParContratSouscrit("INVALID"));
+    }
+
+    @Test
+    void consulterDossierParContratSouscrit_erreurDAO_propageException() throws DAOException {
+        when(dossierDao.consulterDossierParContratSouscrit("PRT-001"))
+                .thenThrow(new DAOException("Erreur Topaze"));
+
+        assertThrows(DAOException.class, () ->
+                dossierService.consulterDossierParContratSouscrit("PRT-001"));
+    }
+
     // ── enrichirNomPersonnes — cas limites ─────────────────────────
 
     @Test

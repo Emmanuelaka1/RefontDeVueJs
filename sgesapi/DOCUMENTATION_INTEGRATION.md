@@ -41,7 +41,7 @@ SGESAPI est le backend Java Spring Boot de l'application SaphirGestion. Il expos
 
 Le backend fournit trois types d'API :
 
-- **API SIGAC** (OpenAPI 3.0.3 - `sigac-prets.yaml`) : `GET /api/v1/prets` et `GET /api/v1/prets/{id}` — utilisées par le frontend Vue.js
+- **API Loans** (OpenAPI 3.0.2 - `sigac-prets.yaml`) : `GET /loans/{id}` — consultation d'un crédit par son ID (contrat OpenAPI)
 - **API Recherche** (contrôleurs manuels) : `POST /api/v1/recherche/dossiers` et `GET /api/v1/recherche/dossiers` — recherche multicritères
 - **API Consultation** (contrôleur manuel) : `GET /api/v1/dossiers/{numeroPret}` — consultation détaillée
 - **API Auth** : `POST /api/v1/auth/login` — authentification JWT
@@ -92,11 +92,10 @@ gradlew.bat build
 
 1. Télécharge les dépendances (Maven Central)
 2. Génère les classes Java depuis `openapi.json` (Swagger 2.0 — API Topaze)
-3. Génère les classes Java depuis `sigac-prets.yaml` (OpenAPI 3.0.3 — API SIGAC)
-4. Supprime les fichiers doublons entre les deux générateurs (`cleanDuplicateGeneratedFiles`)
-5. Compile le code source
-6. Exécute les 170 tests unitaires (JUnit 5)
-7. Génère le rapport de couverture JaCoCo (`build/reports/jacoco/test/html/index.html`)
+3. Génère les classes Java depuis `sigac-prets.yaml` (OpenAPI 3.0.2 — Loans API)
+4. Compile le code source (les doublons `org/openapitools/**` sont exclus via `sourceSets`)
+5. Exécute les 182 tests unitaires (JUnit 5)
+6. Génère le rapport de couverture JaCoCo (`build/reports/jacoco/test/html/index.html`)
 
 ### 3.3 Vérifier le build
 
@@ -113,7 +112,7 @@ build/
 ├── java/
 │   ├── generatedOpentopazeservice/    ← Classes API Topaze (Swagger 2.0)
 │   │   └── src/main/java/com/arkea/sgesapi/dao/...
-│   └── generatedSigacPrets/           ← Classes API SIGAC (OpenAPI 3.0.3)
+│   └── generatedSigacPrets/           ← Classes Loans API (OpenAPI 3.0.2)
 │       └── src/main/java/com/arkea/sgesapi/api/sigac/...
 │                                       └── model/sigac/...
 └── classes/
@@ -212,18 +211,14 @@ Une fois lancé, vérifier :
 | URL | Attendu |
 |-----|---------|
 | `http://localhost:9088/swagger-ui.html` | Interface Swagger UI |
-| `http://localhost:9088/api/v1/prets` | JSON avec 5 dossiers |
-| `http://localhost:9088/api/v1/prets/2024-PAP-001547` | JSON du dossier MARTIN |
+| `http://localhost:9088/loans/2024-PAP-001547` | JSON CommonLoan du dossier MARTIN |
 | `http://localhost:9088/actuator/health` | `{"status":"UP"}` |
 
 ### 5.2 Test rapide avec curl
 
 ```bash
-# Lister tous les dossiers
-curl http://localhost:9088/api/v1/prets
-
-# Consulter un dossier spécifique
-curl http://localhost:9088/api/v1/prets/2024-PAP-001547
+# Consulter un crédit (Loans API)
+curl http://localhost:9088/loans/2024-PAP-001547
 
 # Recherche multicritères
 curl -X POST http://localhost:9088/api/v1/recherche/dossiers \
@@ -294,9 +289,9 @@ Navigateur (:3000)  →  Vite proxy (/api/*)  →  Spring Boot (:9088)
 ### 6.4 Flux utilisateur complet
 
 1. Ouvrir `http://localhost:3000` → écran de **Recherche** (home)
-2. Le frontend appelle `GET /api/v1/prets` → affiche la liste des 5 dossiers mock
-3. Cliquer sur un dossier → navigation vers `/consultation/{id}/donnees-generales`
-4. Le frontend appelle `GET /api/v1/prets/{id}` → affiche les données générales, prêt et dates
+2. Le frontend appelle les API de recherche/consultation → affiche la liste des dossiers
+3. Cliquer sur un dossier → navigation vers la consultation détaillée
+4. Le frontend appelle `GET /loans/{id}` → affiche les données du crédit (CommonLoan)
 
 ---
 
@@ -309,7 +304,7 @@ sgesapi/
 ├── build.gradle                       ← Config build + OpenAPI generators
 ├── settings.gradle
 ├── openapi/
-│   └── sigac-prets.yaml               ← Spec OpenAPI 3.0.3 (API SIGAC)
+│   └── sigac-prets.yaml               ← Spec OpenAPI 3.0.2 (Loans API)
 ├── src/
 │   ├── main/
 │   │   ├── java/com/arkea/sgesapi/
@@ -326,7 +321,7 @@ sgesapi/
 │   │   │   │   ├── RechercheController.java     ← Écran recherche (home)
 │   │   │   │   └── ConsultationController.java  ← Écran consultation
 │   │   │   ├── delegate/
-│   │   │   │   └── PretsApiDelegateImpl.java    ← Impl. OpenAPI delegate SIGAC
+│   │   │   │   └── LoansApiDelegateImpl.java    ← Impl. OpenAPI delegate Loans
 │   │   │   ├── service/
 │   │   │   │   ├── DossierService.java          ← Logique métier dossiers
 │   │   │   │   └── PersonnesService.java        ← Résolution noms personnes
@@ -376,9 +371,9 @@ sgesapi/
 │       └── java/com/arkea/sgesapi/
 │           ├── service/
 │           │   ├── PersonnesServiceTest.java      ← 16 tests
-│           │   └── DossierServiceTest.java        ← 13 tests
+│           │   └── DossierServiceTest.java        ← 16 tests
 │           ├── delegate/
-│           │   └── PretsApiDelegateImplTest.java   ← 11 tests
+│           │   └── LoansApiDelegateImplTest.java  ← 17 tests
 │           ├── controller/
 │           │   ├── RechercheControllerTest.java    ← 5 tests (MockMvc standalone)
 │           │   └── ConsultationControllerTest.java ← 3 tests (MockMvc standalone)
@@ -388,7 +383,7 @@ sgesapi/
 │           │   └── AuthControllerTest.java         ← 2 tests
 │           ├── dao/
 │           │   ├── impl/
-│           │   │   ├── DossierMockDaoTest.java     ← 21 tests
+│           │   │   ├── DossierMockDaoTest.java     ← 24 tests
 │           │   │   ├── PersonnesMockDaoTest.java   ← 8 tests
 │           │   │   └── PersonnesThriftDaoTest.java  ← 2 tests
 │           │   └── model/
@@ -417,7 +412,7 @@ sgesapi/
 ┌─────────────────────────────────────────────────────────┐
 │  Controllers / Delegates                                 │
 │  (RechercheController, ConsultationController,           │
-│   PretsApiDelegateImpl)                                  │
+│   LoansApiDelegateImpl)                                  │
 ├─────────────────────────────────────────────────────────┤
 │  Services                                                │
 │  (DossierService, PersonnesService)                      │
@@ -440,98 +435,74 @@ Le projet utilise deux specs OpenAPI pour générer automatiquement les interfac
 | Spec | Format | Package généré | Usage |
 |------|--------|---------------|-------|
 | `openapi.json` | Swagger 2.0 | `dao.api.opentopazeservice` / `dao.model.opentopazeservice` | API Topaze interne |
-| `sigac-prets.yaml` | OpenAPI 3.0.3 | `api.sigac` / `model.sigac` | API SIGAC (consommée par le frontend) |
+| `sigac-prets.yaml` | OpenAPI 3.0.2 | `api.sigac` / `model.sigac` | Loans API — `GET /loans/{id}` |
 
-Le pattern **delegate** est utilisé : le générateur crée l'interface `PretsApiDelegate`, et `PretsApiDelegateImpl` en fournit l'implémentation.
+Le pattern **delegate** est utilisé : le générateur crée l'interface `LoansApiDelegate`, et `LoansApiDelegateImpl` en fournit l'implémentation.
 
 ---
 
 ## 8. Catalogue des API REST
 
-### 8.1 API SIGAC (frontend Vue.js)
+### 8.1 Loans API (contrat OpenAPI 3.0.2)
 
-Ces endpoints sont générés depuis `sigac-prets.yaml` et implémentés par `PretsApiDelegateImpl`.
+Ce endpoint est généré depuis `openapi/sigac-prets.yaml` et implémenté par `LoansApiDelegateImpl`.
 
-#### `GET /api/v1/prets` — Lister les dossiers
+#### `GET /loans/{id}` — Consulter un crédit
 
-**Réponse** (`ServiceResponseDossierResumeList`) :
+**Paramètre** : `id` = numéro contrat souscrit (ex: `DD04063627`)
 
-```json
-{
-  "data": [
-    {
-      "id": "2024-PAP-001547",
-      "noPret": "2024-PAP-001547",
-      "emprunteur": "MARTIN Jean-Pierre",
-      "montantPret": "250 000,00 €",
-      "codeEtat": "40 - En gestion"
-    }
-  ],
-  "success": true,
-  "message": "OK"
-}
-```
-
-#### `GET /api/v1/prets/{id}` — Consulter un dossier
-
-**Paramètre** : `id` = identifiant du dossier (ex: `2024-PAP-001547`)
-
-**Réponse** (`ServiceResponseDossierPret`) :
+**Réponse** (`CommonLoan`) :
 
 ```json
 {
-  "data": {
-    "id": "2024-PAP-001547",
-    "donneesGenerales": {
-      "emprunteur": "MARTIN Jean-Pierre",
-      "coEmprunteur": "MARTIN Catherine",
-      "noPret": "2024-PAP-001547",
-      "noContratSouscritProjet": "PRJ-2024-08-1547",
-      "noContratSouscritPret": "PRT-2024-08-1547",
-      "efs": "13807",
-      "structure": "CIF Île-de-France",
-      "codeEtat": "40 - En gestion",
-      "codeObjet": "01 - Acquisition ancien",
-      "codeNature": "PAP - Prêt à l'Accession à la Propriété"
-    },
-    "donneesPret": {
-      "montantPret": "250 000,00 €",
-      "dureePret": "240 mois",
-      "tauxRemboursement": "3,45 %",
-      "tauxFranchise": "0,00 %",
-      "tauxBonification": "0,00 %",
-      "anticipation": "Non",
-      "typeAmortissement": "Échéances constantes",
-      "outilInstruction": "GIPSI",
-      "montantDebloque": "250 000,00 €",
-      "montantDisponible": "0,00 €",
-      "montantRA": "0,00 €",
-      "encours": "237 845,12 €",
-      "teg": "3,72 %"
-    },
-    "dates": {
-      "dateAcceptation": "",
-      "dateAccord": "",
-      "dateOuvertureCredit": "",
-      "datePassageGestion": "",
-      "dateEffet": "",
-      "date1ereEcheance": "",
-      "dateEffetRA": "",
-      "dateEffetFP": "",
-      "dateFinPret": "",
-      "date1ereEcheance2": "",
-      "datePrecedenteEcheance": "",
-      "dateProchaineEcheance": "",
-      "dateAbonnementPrecedent": "",
-      "dateAbonnementSuivant": "",
-      "dateTombeePrecedente": "",
-      "dateTombeeSuivante": ""
-    }
+  "id": "PRT-2024-08-1547",
+  "masterContractId": "PRJ-2024-08-1547",
+  "duration": 240,
+  "periodicity": "M",
+  "borrowedAmount": 250000.0,
+  "rate": 3.45,
+  "availableAmount": 0.0,
+  "label": "Prêt à l'Accession à la Propriété",
+  "typeCode": "PAP",
+  "loanType": {
+    "code": "PAP",
+    "label": "Prêt à l'Accession à la Propriété"
   },
-  "success": true,
-  "message": "OK"
+  "objectCode": {
+    "code": "01",
+    "label": "Acquisition ancien"
+  },
+  "loanState": {
+    "code": "40",
+    "label": "En gestion"
+  },
+  "participants": [
+    {
+      "personFederation": "13807",
+      "personNumber": "PP-001547-E",
+      "roleCode": "EMP",
+      "lastName": "MARTIN",
+      "firstName": "Jean-Pierre"
+    },
+    {
+      "personFederation": "13807",
+      "personNumber": "PP-001547-C",
+      "roleCode": "COE",
+      "lastName": "MARTIN",
+      "firstName": "Catherine"
+    }
+  ]
 }
 ```
+
+**Codes de réponse** :
+
+| Code | Description |
+|------|-------------|
+| 200 | Crédit trouvé |
+| 400 | Paramètre manquant ou mal formaté |
+| 401 | JWT non fourni ou invalide |
+| 404 | Crédit non trouvé |
 
 ### 8.2 API Recherche (écran home)
 
@@ -926,7 +897,7 @@ SPRING_PROFILES_ACTIVE=prod java -jar sgesapi.jar
 5. **Sécurité JWT** : commenter `.requestMatchers("/api/v1/**").permitAll()` dans `SecurityConfig`
 6. **Clé JWT** : définir une clé secrète forte via `JWT_SECRET`
 7. **CORS** : restreindre les origines autorisées aux domaines de chaque environnement
-8. **Dates du prêt** : brancher les `DatesPret` sur Topaze (actuellement vides dans `PretsApiDelegateImpl`)
+8. **Dates du prêt** : brancher `startDate`, `endDate` dans `LoansApiDelegateImpl` (actuellement non mappés)
 
 ---
 
@@ -955,9 +926,9 @@ Le rapport HTML est généré dans `build/reports/jacoco/test/html/index.html`.
 
 ### 15.3 Résultats actuels
 
-- **170 tests** répartis dans **23 fichiers de tests**
-- **98% de couverture d'instructions** (69 instructions manquées sur 3 742)
-- **79% de couverture de branches**
+- **182 tests** répartis dans **23 fichiers de tests**
+- **98.1% de couverture d'instructions**
+- **79.8% de couverture de branches**
 - Toutes les couches couvertes : services, contrôleurs, delegates, DAOs, Thrift, sécurité, DTOs, exceptions
 
 ### 15.4 Organisation des tests par couche
@@ -965,7 +936,7 @@ Le rapport HTML est généré dans `build/reports/jacoco/test/html/index.html`.
 | Couche | Fichiers de test | Nb tests | Technique |
 |--------|-----------------|----------|-----------|
 | Services | PersonnesServiceTest, DossierServiceTest | 29 | Mockito (@ExtendWith) |
-| Delegates | PretsApiDelegateImplTest | 11 | Mockito |
+| Delegates | LoansApiDelegateImplTest | 17 | Mockito |
 | Contrôleurs | RechercheControllerTest, ConsultationControllerTest | 8 | MockMvc standalone |
 | Sécurité | JwtServiceTest, JwtAuthFilterTest, AuthControllerTest | 13 | Mockito + MockMvc |
 | DAO Mock | DossierMockDaoTest, PersonnesMockDaoTest | 29 | Instanciation directe |
@@ -1054,7 +1025,7 @@ transport = new TSocket(host, port, timeout);
 
 ### Erreur : Classes dupliquées entre OpenAPI generators
 
-Les deux taches OpenAPI Generator produisent des classes utilitaires identiques (`HomeController`, `SpringDocConfiguration`, etc.). La tache `cleanDuplicateGeneratedFiles` supprime le dossier `org/openapitools` des deux répertoires générés après la génération.
+Les deux taches OpenAPI Generator produisent des classes utilitaires identiques (`HomeController`, `SpringDocConfiguration`, etc.). Le `sourceSets` dans `build.gradle` exclut `org/openapitools/**` pour éviter les conflits de compilation.
 
 ### Erreur : Circular dependency (JwtAuthFilter / SecurityConfig)
 

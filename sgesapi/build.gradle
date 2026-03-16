@@ -32,6 +32,7 @@ sourceSets {
                     "${buildDir}/generated-sources/thrift",
                     "${buildDir}/java/generatedOpentopazeservice/src/main/java",
                     "${buildDir}/java/generatedSigacPrets/src/main/java"
+            exclude 'org/openapitools/**'
         }
     }
 }
@@ -106,7 +107,7 @@ task generateOpentopazeservice(type: org.openapitools.generator.gradle.plugin.ta
     ]
 }
 
-// ── Génération OpenAPI — SIGAC Prêts (OpenAPI 3.0.3) ─────────────
+// ── Génération OpenAPI — Loans API (OpenAPI 3.0.2) ───────────────
 task generateSigacPrets(type: org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
     generatorName = "spring"
     library       = "spring-boot"
@@ -124,18 +125,8 @@ task generateSigacPrets(type: org.openapitools.generator.gradle.plugin.tasks.Gen
     ]
 }
 
-// ── Supprimer les fichiers doublons après génération ──────────────
-task cleanDuplicateGeneratedFiles {
-    dependsOn generateOpentopazeservice, generateSigacPrets
-    doLast {
-        // Supprimer les supporting files des deux générations pour éviter les doublons
-        delete "${buildDir}/java/generatedSigacPrets/src/main/java/org/openapitools"
-        delete "${buildDir}/java/generatedOpentopazeservice/src/main/java/org/openapitools"
-    }
-}
-
 // ── Ordre de build ────────────────────────────────────────────────
-compileJava.dependsOn cleanDuplicateGeneratedFiles
+compileJava.dependsOn generateOpentopazeservice, generateSigacPrets
 // Thrift generation optionnelle si le binaire thrift est installé
 // tasks.generateOpentopazeservice.dependsOn generateThrift
 

@@ -90,6 +90,26 @@ public class DossierService {
         return dossier;
     }
 
+    /**
+     * Consultation complète d'un dossier par numéro de contrat souscrit.
+     * Utilisé par la Loans API (GET /loans/{id}) où id = numéro contrat souscrit prêt.
+     * <p>
+     * Les champs emprunteur/coEmprunteur sont résolus via PersonnesService.
+     *
+     * @param numeroContratSouscrit numéro contrat souscrit prêt (ex: "PRT-2024-08-1547")
+     * @throws DossierNotFoundException si le dossier n'existe pas
+     * @throws DAOException en cas d'erreur d'accès aux données
+     */
+    public DossierConsultationDto consulterDossierParContratSouscrit(String numeroContratSouscrit) throws DAOException {
+        log.info("Consultation dossier — N° contrat souscrit : {}", numeroContratSouscrit);
+        DossierConsultationDto dossier = dossierDao.consulterDossierParContratSouscrit(numeroContratSouscrit)
+                .orElseThrow(() -> new DossierNotFoundException(numeroContratSouscrit));
+
+        enrichirNomPersonnes(dossier);
+
+        return dossier;
+    }
+
     // ── Enrichissement des noms via PersonnesService ───────────────
 
     /**
