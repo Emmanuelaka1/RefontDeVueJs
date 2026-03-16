@@ -1,11 +1,11 @@
 package com.arkea.sgesapi.dao.impl;
 
-import com.arkea.sgesapi.dao.api.ISigacLoansDao;
-import com.arkea.sgesapi.exception.DAOException;
+import com.arkea.sgesapi.api.sigac.LoansApi;
 import com.arkea.sgesapi.model.sigac.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Repository;
 
 import jakarta.annotation.PostConstruct;
@@ -23,9 +23,9 @@ import java.util.*;
  */
 @Repository
 @Profile("dev")
-public class SigacLoansMockDao implements ISigacLoansDao {
+public class LoansApiDaoMock implements LoansApi {
 
-    private static final Logger log = LoggerFactory.getLogger(SigacLoansMockDao.class);
+    private static final Logger log = LoggerFactory.getLogger(LoansApiDaoMock.class);
 
     private final Map<String, CommonLoan> loans = new LinkedHashMap<>();
 
@@ -162,8 +162,13 @@ public class SigacLoansMockDao implements ISigacLoansDao {
     }
 
     @Override
-    public Optional<CommonLoan> getLoan(String contratId) throws DAOException {
+    public ResponseEntity<CommonLoan> getLoan(String contratId) {
         log.debug("SIGAC Mock — getLoan contratId={}", contratId);
-        return Optional.ofNullable(loans.get(contratId));
+        CommonLoan loan = loans.get(contratId);
+        if (loan == null) {
+            log.warn("SIGAC Mock — Prêt non trouvé : {}", contratId);
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(loan);
     }
 }
