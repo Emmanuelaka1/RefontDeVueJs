@@ -5,6 +5,7 @@ import com.arkea.sgesapi.exception.DAOException;
 import com.arkea.sgesapi.model.sigac.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import jakarta.annotation.PostConstruct;
@@ -12,14 +13,16 @@ import java.math.BigDecimal;
 import java.util.*;
 
 /**
- * Implémentation Mock du client SIGAC Loans.
+ * Implémentation Mock du client SIGAC Loans — profil DEV uniquement.
  * <p>
  * Simule les réponses du service REST SIGAC pour le développement.
  * Retourne des CommonLoan conformes au contrat OpenAPI sigac-prets.yaml.
  * <p>
- * En production, sera remplacé par une implémentation HTTP (RestTemplate/WebClient).
+ * En val/rec/hml/prod, c'est SigacLoansRestDao (@Profile "!dev") qui prend le relai
+ * avec un vrai appel HTTP vers le service SIGAC.
  */
 @Repository
+@Profile("dev")
 public class SigacLoansMockDao implements ISigacLoansDao {
 
     private static final Logger log = LoggerFactory.getLogger(SigacLoansMockDao.class);

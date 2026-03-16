@@ -25,6 +25,12 @@ thrift:
         test-on-borrow: true
         test-while-idle: true
 
+# ── SIGAC Loans REST ─────────────────────────────────────────────
+# URL de base du service REST SIGAC Loans (utilisé hors profil dev)
+sigac:
+  loans:
+    base-url: ${SIGAC_LOANS_BASE_URL:http://localhost:8081/api/v1}
+
 # ── JWT ────────────────────────────────────────────────────────────
 jwt:
   secret: ${JWT_SECRET:bXlTdXBlclNlY3JldEtleUZvclNnZXNBcGlKd3RUb2tlbjIwMjQ=}

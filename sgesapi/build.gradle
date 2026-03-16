@@ -33,6 +33,8 @@ sourceSets {
                     "${buildDir}/java/generatedOpentopazeservice/src/main/java",
                     "${buildDir}/java/generatedSigacPrets/src/main/java"
             exclude 'org/openapitools/**'
+            // Exclure le controller généré SIGAC — on implémente LoansApi directement dans LoansController
+            exclude '**/sigac/LoansApiController.java'
         }
     }
 }

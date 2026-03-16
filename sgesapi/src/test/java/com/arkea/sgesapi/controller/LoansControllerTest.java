@@ -1,10 +1,12 @@
-package com.arkea.sgesapi.delegate;
+package com.arkea.sgesapi.controller;
 
 import com.arkea.sgesapi.dao.api.ISigacLoansDao;
 import com.arkea.sgesapi.dao.model.DossierConsultationDto;
-import com.arkea.sgesapi.model.sigac.*;
 import com.arkea.sgesapi.exception.DAOException;
+import com.arkea.sgesapi.exception.GlobalExceptionHandler;
+import com.arkea.sgesapi.model.sigac.*;
 import com.arkea.sgesapi.service.PersonnesService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -12,6 +14,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -20,16 +24,19 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Tests unitaires — LoansApiDelegateImpl.
+ * Tests unitaires — LoansController (implémente LoansApi directement).
  * <p>
- * Couvre le endpoint GET /loans/{id} et le mapping
- * CommonLoan (SIGAC externe) → DossierConsultationDto (modèle interne)
- * avec résolution des noms via PersonnesService (opentopazservice).
+ * Couvre :
+ *  - GET /loans/{id} via MockMvc
+ *  - Mapping CommonLoan → DossierConsultationDto
+ *  - Résolution des noms via PersonnesService (opentopazservice)
  */
 @ExtendWith(MockitoExtension.class)
-class LoansApiDelegateImplTest {
+class LoansControllerTest {
 
     @Mock
     private ISigacLoansDao sigacLoansDao;
@@ -38,40 +45,51 @@ class LoansApiDelegateImplTest {
     private PersonnesService personnesService;
 
     @InjectMocks
-    private LoansApiDelegateImpl delegate;
+    private LoansController controller;
 
-    // ── getLoan — cas nominal ───────────────────────────────────────
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+    }
+
+    // ── GET /loans/{id} — MockMvc ─────────────────────────────────
 
     @Test
-    void getLoan_existant_retourneOk() throws Exception {
+    void getLoan_retourneOkAvecCommonLoan() throws Exception {
         CommonLoan loan = createCompleteLoan();
         when(sigacLoansDao.getLoan("PRT-2024-08-1547")).thenReturn(Optional.of(loan));
         when(personnesService.resoudreEmprunteurCoEmprunteur("PP-001547-E", "PP-001547-C"))
                 .thenReturn(new String[]{"MARTIN Jean-Pierre", "MARTIN Catherine"});
 
-        ResponseEntity<CommonLoan> response = delegate.getLoan("PRT-2024-08-1547");
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
+        mockMvc.perform(get("/loans/PRT-2024-08-1547"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("PRT-2024-08-1547"))
+                .andExpect(jsonPath("$.masterContractId").value("PRJ-2024-08-1547"))
+                .andExpect(jsonPath("$.duration").value(240))
+                .andExpect(jsonPath("$.borrowedAmount").value(250000.0))
+                .andExpect(jsonPath("$.loanType.code").value("PAP"))
+                .andExpect(jsonPath("$.loanState.label").value("En gestion"));
     }
 
     @Test
-    void getLoan_inexistant_retourne404() throws DAOException {
+    void getLoan_inexistant_retourne404() throws Exception {
         when(sigacLoansDao.getLoan("INEXISTANT")).thenReturn(Optional.empty());
 
-        ResponseEntity<CommonLoan> response = delegate.getLoan("INEXISTANT");
-
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        mockMvc.perform(get("/loans/INEXISTANT"))
+                .andExpect(status().isNotFound());
     }
 
     @Test
-    void getLoan_erreurDAO_retourne500() throws DAOException {
+    void getLoan_erreurDAO_retourne500() throws Exception {
         when(sigacLoansDao.getLoan("PRT-2024-08-1547"))
                 .thenThrow(new DAOException("Erreur connexion SIGAC"));
 
-        ResponseEntity<CommonLoan> response = delegate.getLoan("PRT-2024-08-1547");
-
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        mockMvc.perform(get("/loans/PRT-2024-08-1547"))
+                .andExpect(status().isInternalServerError());
     }
 
     @Test
@@ -81,7 +99,8 @@ class LoansApiDelegateImplTest {
         when(personnesService.resoudreEmprunteurCoEmprunteur("PP-001547-E", "PP-001547-C"))
                 .thenReturn(new String[]{"MARTIN Jean-Pierre", "MARTIN Catherine"});
 
-        delegate.getLoan("PRT-2024-08-1547");
+        mockMvc.perform(get("/loans/PRT-2024-08-1547"))
+                .andExpect(status().isOk());
 
         verify(personnesService).resoudreEmprunteurCoEmprunteur("PP-001547-E", "PP-001547-C");
     }
@@ -93,10 +112,9 @@ class LoansApiDelegateImplTest {
         when(personnesService.resoudreEmprunteurCoEmprunteur(anyString(), anyString()))
                 .thenThrow(new RuntimeException("Topaze indisponible"));
 
-        ResponseEntity<CommonLoan> response = delegate.getLoan("PRT-2024-08-1547");
-
-        // L'erreur PersonnesService ne doit pas bloquer la réponse
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        mockMvc.perform(get("/loans/PRT-2024-08-1547"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("PRT-2024-08-1547"));
     }
 
     // ── Mapping CommonLoan → DossierConsultationDto ─────────────────
@@ -105,7 +123,7 @@ class LoansApiDelegateImplTest {
     void toDossierConsultationDto_mappeIdentifiantsContrat() {
         CommonLoan loan = createCompleteLoan();
 
-        DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
+        DossierConsultationDto dto = controller.toDossierConsultationDto(loan);
 
         assertEquals("PRT-2024-08-1547", dto.getNumeroContratSouscritPret());
         assertEquals("PRJ-2024-08-1547", dto.getNumeroContratSouscritProjet());
@@ -115,7 +133,7 @@ class LoansApiDelegateImplTest {
     void toDossierConsultationDto_mappeDureeEtMontant() {
         CommonLoan loan = createCompleteLoan();
 
-        DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
+        DossierConsultationDto dto = controller.toDossierConsultationDto(loan);
 
         assertEquals(240, dto.getDureePret());
         assertEquals(250000.0, dto.getMontantPret());
@@ -124,31 +142,15 @@ class LoansApiDelegateImplTest {
     }
 
     @Test
-    void toDossierConsultationDto_mappeLoanState() {
+    void toDossierConsultationDto_mappeLoanStateObjectCodeLoanType() {
         CommonLoan loan = createCompleteLoan();
 
-        DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
+        DossierConsultationDto dto = controller.toDossierConsultationDto(loan);
 
         assertEquals("40", dto.getCodeEtat());
         assertEquals("En gestion", dto.getLibelleEtat());
-    }
-
-    @Test
-    void toDossierConsultationDto_mappeLoanType() {
-        CommonLoan loan = createCompleteLoan();
-
-        DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
-
         assertEquals("PAP", dto.getCodeNature());
         assertEquals("Prêt à l'Accession à la Propriété", dto.getLibelleNature());
-    }
-
-    @Test
-    void toDossierConsultationDto_mappeObjectCode() {
-        CommonLoan loan = createCompleteLoan();
-
-        DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
-
         assertEquals("01", dto.getCodeObjet());
         assertEquals("Acquisition ancien", dto.getLibelleObjet());
     }
@@ -157,61 +159,47 @@ class LoansApiDelegateImplTest {
     void toDossierConsultationDto_extraitIdentifiantsPersonnesSansNoms() {
         CommonLoan loan = createCompleteLoan();
 
-        DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
+        DossierConsultationDto dto = controller.toDossierConsultationDto(loan);
 
-        // Identifiants extraits des Participant
         assertEquals("PP-001547-E", dto.getNoEmprunteur());
         assertEquals("PP-001547-C", dto.getNoCoEmprunteur());
         assertEquals("13807", dto.getEfs());
-
-        // Noms NON remplis — seront résolus via PersonnesService
+        // Noms NON remplis — résolus ensuite via opentopazservice
         assertNull(dto.getEmprunteur());
         assertNull(dto.getCoEmprunteur());
     }
 
     @Test
-    void toDossierConsultationDto_sansCoEmprunteur_coEmprunteurNull() {
+    void toDossierConsultationDto_sansCoEmprunteur() {
         CommonLoan loan = createCompleteLoan();
-        Participant emp = loan.getParticipants().get(0);
-        loan.setParticipants(List.of(emp));
+        loan.setParticipants(List.of(loan.getParticipants().get(0)));
 
-        DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
+        DossierConsultationDto dto = controller.toDossierConsultationDto(loan);
 
         assertEquals("PP-001547-E", dto.getNoEmprunteur());
         assertNull(dto.getNoCoEmprunteur());
     }
 
     @Test
-    void toDossierConsultationDto_montantNull_retourneNull() {
+    void toDossierConsultationDto_montantNull() {
         CommonLoan loan = createCompleteLoan();
         loan.setBorrowedAmount(null);
-        loan.setAvailableAmount(null);
         loan.setRate(null);
+        loan.setAvailableAmount(null);
 
-        DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
+        DossierConsultationDto dto = controller.toDossierConsultationDto(loan);
 
         assertNull(dto.getMontantPret());
-        assertNull(dto.getMontantDisponible());
         assertNull(dto.getTauxRemboursement());
+        assertNull(dto.getMontantDisponible());
     }
 
     @Test
-    void toDossierConsultationDto_sansLoanType_utiliseLabelEtTypeCode() {
-        CommonLoan loan = createCompleteLoan();
-        loan.setLoanType(null);
-
-        DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
-
-        assertEquals("PAP", dto.getCodeNature());
-        assertEquals("Prêt à l'Accession à la Propriété", dto.getLibelleNature());
-    }
-
-    @Test
-    void toDossierConsultationDto_sansParticipants_identifiantsNull() {
+    void toDossierConsultationDto_sansParticipants() {
         CommonLoan loan = createCompleteLoan();
         loan.setParticipants(null);
 
-        DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
+        DossierConsultationDto dto = controller.toDossierConsultationDto(loan);
 
         assertNull(dto.getNoEmprunteur());
         assertNull(dto.getNoCoEmprunteur());

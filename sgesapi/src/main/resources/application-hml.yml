@@ -12,6 +12,11 @@ thrift:
         max-idle: 4
         min-idle: 2
 
+# ── SIGAC Loans REST ─────────────────────────────────────────────
+sigac:
+  loans:
+    base-url: ${SIGAC_LOANS_BASE_URL:http://sigac-hml.arkea.local:8080/api/v1}
+
 logging:
   level:
     com.arkea.sgesapi: INFO
