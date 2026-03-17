@@ -13,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests unitaires — PersonnesMockDao.
+ * <p>
+ * Identifiants alignés sur les personNumber du LoansApiDaoMock (format réel SIGAC).
  */
 class PersonnesMockDaoTest {
 
@@ -27,10 +29,10 @@ class PersonnesMockDaoTest {
     @Test
     void getInformationsMinimalesPersonnes_identifiantExistant() throws DAOException {
         Map<String, PersonneMinimaleDto> result =
-                dao.getInformationsMinimalesPersonnes(List.of("PP-001547-E"));
+                dao.getInformationsMinimalesPersonnes(List.of("14336390"));
 
         assertEquals(1, result.size());
-        PersonneMinimaleDto personne = result.get("PP-001547-E");
+        PersonneMinimaleDto personne = result.get("14336390");
         assertNotNull(personne);
         assertEquals("MARTIN", personne.getNom());
         assertEquals("Jean-Pierre", personne.getPrenom());
@@ -40,12 +42,12 @@ class PersonnesMockDaoTest {
     @Test
     void getInformationsMinimalesPersonnes_plusieursIdentifiants() throws DAOException {
         Map<String, PersonneMinimaleDto> result =
-                dao.getInformationsMinimalesPersonnes(List.of("PP-001547-E", "PP-001547-C", "PP-002891-E"));
+                dao.getInformationsMinimalesPersonnes(List.of("14336390", "14336391", "15789012"));
 
         assertEquals(3, result.size());
-        assertEquals("MARTIN", result.get("PP-001547-E").getNom());
-        assertEquals("MARTIN", result.get("PP-001547-C").getNom());
-        assertEquals("DUPONT", result.get("PP-002891-E").getNom());
+        assertEquals("MARTIN", result.get("14336390").getNom());
+        assertEquals("MARTIN", result.get("14336391").getNom());
+        assertEquals("DUPONT", result.get("15789012").getNom());
     }
 
     @Test
@@ -67,7 +69,7 @@ class PersonnesMockDaoTest {
     @Test
     void getInformationsMinimalesPersonnes_avecNull_filtreNull() throws DAOException {
         Map<String, PersonneMinimaleDto> result =
-                dao.getInformationsMinimalesPersonnes(List.of("PP-001547-E"));
+                dao.getInformationsMinimalesPersonnes(List.of("14336390"));
 
         assertEquals(1, result.size());
     }
@@ -75,32 +77,31 @@ class PersonnesMockDaoTest {
     @Test
     void getInformationsMinimalesPersonnes_mixteExistantInconnu() throws DAOException {
         Map<String, PersonneMinimaleDto> result =
-                dao.getInformationsMinimalesPersonnes(List.of("PP-001547-E", "INCONNU"));
+                dao.getInformationsMinimalesPersonnes(List.of("14336390", "INCONNU"));
 
         assertEquals(1, result.size());
-        assertNotNull(result.get("PP-001547-E"));
+        assertNotNull(result.get("14336390"));
         assertNull(result.get("INCONNU"));
     }
 
     @Test
-    void mockData_contient8Personnes() throws DAOException {
+    void mockData_contient5Personnes() throws DAOException {
         List<String> allIds = List.of(
-                "PP-001547-E", "PP-001547-C", "PP-002891-E", "PP-002891-C",
-                "PP-000412-E", "PP-003102-E", "PP-003102-C", "PP-001890-E"
+                "14336390", "14336391", "15789012", "15789013", "12004567"
         );
 
         Map<String, PersonneMinimaleDto> result =
                 dao.getInformationsMinimalesPersonnes(allIds);
 
-        assertEquals(8, result.size());
+        assertEquals(5, result.size());
     }
 
     @Test
     void getLibelleComplet_formatCorrect() throws DAOException {
         Map<String, PersonneMinimaleDto> result =
-                dao.getInformationsMinimalesPersonnes(List.of("PP-001890-E"));
+                dao.getInformationsMinimalesPersonnes(List.of("12004567"));
 
-        PersonneMinimaleDto nguyen = result.get("PP-001890-E");
-        assertEquals("NGUYEN Van Thi", nguyen.getLibelleComplet());
+        PersonneMinimaleDto leclerc = result.get("12004567");
+        assertEquals("LECLERC Sophie", leclerc.getLibelleComplet());
     }
 }

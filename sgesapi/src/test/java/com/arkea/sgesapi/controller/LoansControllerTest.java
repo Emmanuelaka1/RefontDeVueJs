@@ -1,94 +1,112 @@
 package com.arkea.sgesapi.controller;
 
-import com.arkea.sgesapi.dao.api.LoansApiDelegate;
+import com.arkea.sgesapi.AbstractSpringBootTest;
 import com.arkea.sgesapi.dao.model.DossierConsultationDto;
-import com.arkea.sgesapi.exception.GlobalExceptionHandler;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.ResponseEntity;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests unitaires — LoansController.
+ * Tests d'intégration — LoansController avec RestAssured.
  * <p>
- * Le controller délègue à LoansApiDelegate.searchLoans().
- * On vérifie ici le routage HTTP et la bonne propagation des réponses.
+ * Profil "dev" activé :
+ *   - LoansApiDaoMock fournit les données SIGAC (3 prêts mock format réel)
+ *   - PersonnesMockDao fournit la résolution des noms
+ * <p>
+ * Teste le flux complet :
+ *   LoansController → LoansApiDelegateImpl → LoansApiDaoMock → PersonnesMockDao
  */
-@ExtendWith(MockitoExtension.class)
-class LoansControllerTest {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("dev")
+class LoansControllerTest extends AbstractSpringBootTest {
 
-    @Mock
-    private LoansApiDelegate loansApiDelegate;
-
-    @InjectMocks
-    private LoansController controller;
-
-    private MockMvc mockMvc;
-
-    @BeforeEach
-    void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
-    }
+    private static final String LOANS_PATH = "/api/v1/loans/";
 
     // ── GET /api/v1/loans/{numeroPret} ────────────────────────────
 
     @Test
-    void searchLoans_retourneOkAvecDossier() throws Exception {
-        DossierConsultationDto dto = DossierConsultationDto.builder()
-                .numeroContratSouscritPret("DD04063627")
-                .dureePret(240)
-                .emprunteur("MARTIN Jean-Pierre")
-                .build();
-        when(loansApiDelegate.searchLoans("DD04063627"))
-                .thenReturn(ResponseEntity.ok(dto));
+    void getLoan_existant_retourneOkAvecDossierComplet() {
+        // DD04063627 = prêt 1 dans LoansApiDaoMock, emprunteur 14336390 + co-emprunteur 14336391
+        DossierConsultationDto dto = getResource(
+                LOANS_PATH + "DD04063627",
+                DossierConsultationDto.class
+        );
 
-        mockMvc.perform(get("/api/v1/loans/DD04063627"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.numeroContratSouscritPret").value("DD04063627"))
-                .andExpect(jsonPath("$.dureePret").value(240))
-                .andExpect(jsonPath("$.emprunteur").value("MARTIN Jean-Pierre"));
-
-        verify(loansApiDelegate).searchLoans("DD04063627");
+        assertNotNull(dto);
+        assertEquals("DD04063627", dto.getNumeroContratSouscritPret());
+        assertEquals("DD04063627", dto.getNumeroContratSouscritProjet());
+        assertEquals(240, dto.getDureePret());
+        assertEquals(250000.0, dto.getMontantPret());
+        assertEquals(3.45, dto.getTauxRemboursement());
     }
 
     @Test
-    void searchLoans_pretInexistant_retourne404() throws Exception {
-        when(loansApiDelegate.searchLoans("INEXISTANT"))
-                .thenReturn(ResponseEntity.notFound().build());
+    void getLoan_existant_nomsResolusViaPersonnesService() {
+        DossierConsultationDto dto = getResource(
+                LOANS_PATH + "DD04063627",
+                DossierConsultationDto.class
+        );
 
-        mockMvc.perform(get("/api/v1/loans/INEXISTANT"))
-                .andExpect(status().isNotFound());
+        // PersonnesMockDao résout 14336390 → MARTIN Jean-Pierre, 14336391 → MARTIN Catherine
+        assertEquals("14336390", dto.getNoEmprunteur());
+        assertEquals("14336391", dto.getNoCoEmprunteur());
+        assertEquals("01", dto.getEfs());
+        assertEquals("MARTIN Jean-Pierre", dto.getEmprunteur());
+        assertEquals("MARTIN Catherine", dto.getCoEmprunteur());
     }
 
     @Test
-    void searchLoans_erreurInterne_retourne500() throws Exception {
-        when(loansApiDelegate.searchLoans("DD04063627"))
-                .thenReturn(ResponseEntity.internalServerError().build());
+    void getLoan_existant_verifieMappingNatureEtatObjet() {
+        DossierConsultationDto dto = getResource(
+                LOANS_PATH + "DD04063627",
+                DossierConsultationDto.class
+        );
 
-        mockMvc.perform(get("/api/v1/loans/DD04063627"))
-                .andExpect(status().isInternalServerError());
+        // loanType.code → codeNature, loanType.label → libelleNature
+        assertEquals("110309", dto.getCodeNature());
+        assertEquals("ALTIMMO FIXE", dto.getLibelleNature());
+        // loanState
+        assertEquals("AA", dto.getCodeEtat());
+        assertEquals("EN COURS NORMALE", dto.getLibelleEtat());
+        // objectCode
+        assertEquals("AA", dto.getCodeObjet());
+        assertEquals("ACQUISITION ANCIEN", dto.getLibelleObjet());
     }
 
     @Test
-    void searchLoans_delegueAvecBonParametre() throws Exception {
-        when(loansApiDelegate.searchLoans(anyString()))
-                .thenReturn(ResponseEntity.ok(DossierConsultationDto.builder().build()));
+    void getLoan_deuxiemePret_retourneOk() {
+        DossierConsultationDto dto = getResource(
+                LOANS_PATH + "AX12457845",
+                DossierConsultationDto.class
+        );
 
-        mockMvc.perform(get("/api/v1/loans/PRT-2024-08-1547"))
-                .andExpect(status().isOk());
+        assertNotNull(dto);
+        assertEquals("AX12457845", dto.getNumeroContratSouscritPret());
+        assertEquals(300, dto.getDureePret());
+        assertEquals("200100", dto.getCodeNature());
+        assertEquals("PRET ACCESSION SOCIALE", dto.getLibelleNature());
+        assertEquals("DUPONT Marie", dto.getEmprunteur());
+    }
 
-        verify(loansApiDelegate).searchLoans("PRT-2024-08-1547");
-        verifyNoMoreInteractions(loansApiDelegate);
+    @Test
+    void getLoan_sansCoEmprunteur_coEmprunteurNull() {
+        DossierConsultationDto dto = getResource(
+                LOANS_PATH + "BZ98765432",
+                DossierConsultationDto.class
+        );
+
+        assertNotNull(dto);
+        assertEquals("BZ98765432", dto.getNumeroContratSouscritPret());
+        assertEquals("12004567", dto.getNoEmprunteur());
+        assertEquals("LECLERC Sophie", dto.getEmprunteur());
+        assertNull(dto.getNoCoEmprunteur());
+        assertNull(dto.getCoEmprunteur());
+    }
+
+    @Test
+    void getLoan_inexistant_retourne404() {
+        getError(LOANS_PATH + "INEXISTANT", 404);
     }
 }

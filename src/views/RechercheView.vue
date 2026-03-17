@@ -17,7 +17,7 @@
             v-model="criteres.numeroPret"
             type="text"
             class="field-input"
-            placeholder="Ex: 2024-PAP-001547"
+            placeholder="Ex: DD04063627"
             @keydown.enter="rechercher"
           />
         </div>
@@ -128,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getPretService } from '@/services/pretService'
 import { usePretStore } from '@/stores/pretStore'
@@ -156,24 +156,38 @@ async function rechercher() {
 
   try {
     const service = await getPretService()
-    const response = await service.listerDossiers()
 
-    if (response.success) {
-      // Filtrage côté client sur les critères saisis
-      resultats.value = response.data.filter((d) => {
-        if (criteres.value.numeroPret && !d.noPret.toLowerCase().includes(criteres.value.numeroPret.toLowerCase())) {
-          return false
-        }
-        if (criteres.value.emprunteur && !d.emprunteur.toLowerCase().includes(criteres.value.emprunteur.toLowerCase())) {
-          return false
-        }
-        if (criteres.value.codeEtat && !d.codeEtat.startsWith(criteres.value.codeEtat)) {
-          return false
-        }
-        return true
-      })
+    // Si un N° de prêt est saisi, appel direct au LoansController
+    if (criteres.value.numeroPret.trim()) {
+      const response = service.rechercherPret
+        ? await service.rechercherPret(criteres.value.numeroPret.trim())
+        : await service.listerDossiers()
+
+      if (response.success) {
+        resultats.value = response.data
+      } else {
+        erreur.value = response.message || 'Erreur lors de la recherche'
+      }
     } else {
-      erreur.value = response.message || 'Erreur lors de la recherche'
+      // Sans N° de prêt : listerDossiers puis filtrage côté client
+      const response = await service.listerDossiers()
+
+      if (response.success) {
+        resultats.value = response.data.filter((d) => {
+          if (
+            criteres.value.emprunteur &&
+            !d.emprunteur.toLowerCase().includes(criteres.value.emprunteur.toLowerCase())
+          ) {
+            return false
+          }
+          if (criteres.value.codeEtat && !d.codeEtat.startsWith(criteres.value.codeEtat)) {
+            return false
+          }
+          return true
+        })
+      } else {
+        erreur.value = response.message || 'Erreur lors de la recherche'
+      }
     }
   } catch (e) {
     erreur.value = 'Erreur lors de la recherche'
@@ -196,15 +210,21 @@ function consulterDossier(id: string) {
 }
 
 function badgeClass(codeEtat: string): string {
-  if (codeEtat.startsWith('40')) return 'badge-gestion'
-  if (codeEtat.startsWith('30')) return 'badge-deblocage'
+  // Support formats mock (40, 30, 20) et réels SIGAC (AA - EN COURS NORMALE, DB - EN DEBLOCAGE)
+  if (codeEtat.startsWith('40') || codeEtat.startsWith('AA')) return 'badge-gestion'
+  if (codeEtat.startsWith('30') || codeEtat.startsWith('DB')) return 'badge-deblocage'
   if (codeEtat.startsWith('20')) return 'badge-instruction'
   return ''
 }
 
-// Chargement initial : afficher tous les dossiers
-onMounted(() => {
-  rechercher()
+// Chargement initial : en mode mock, afficher tous les dossiers
+// En mode HTTP (LoansController), la recherche est déclenchée par l'utilisateur
+onMounted(async () => {
+  const service = await getPretService()
+  // Si rechercherPret n'existe pas (mock), charger la liste complète
+  if (!service.rechercherPret) {
+    rechercher()
+  }
 })
 </script>
 

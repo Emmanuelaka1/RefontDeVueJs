@@ -26,6 +26,13 @@ import static org.mockito.Mockito.*;
  *  - searchLoans : flux nominal, 404, erreur interne
  *  - toDossierConsultationDto : mapping de tous les champs CommonLoan
  *  - enrichirNomPersonnes : résolution via PersonnesService, tolérance erreurs
+ * <p>
+ * Les données de test utilisent les formats réels SIGAC :
+ *  - id : 10 caractères alphanumériques (DD04063627)
+ *  - typeCode : 5 chiffres (10117)
+ *  - personNumber : numérique (14336390)
+ *  - personFederation : code EFS court (01)
+ *  - label : null (le libellé vient de loanType.label)
  */
 @ExtendWith(MockitoExtension.class)
 class LoansApiDelegateImplTest {
@@ -45,7 +52,7 @@ class LoansApiDelegateImplTest {
     void searchLoans_nominal_retourneOkAvecDossierEnrichi() {
         CommonLoan loan = createCompleteLoan();
         when(loansApi.getLoan("DD04063627")).thenReturn(ResponseEntity.ok(loan));
-        when(personnesService.resoudreEmprunteurCoEmprunteur("PP-001547-E", "PP-001547-C"))
+        when(personnesService.resoudreEmprunteurCoEmprunteur("14336390", "14336391"))
                 .thenReturn(new String[]{"MARTIN Jean-Pierre", "MARTIN Catherine"});
 
         ResponseEntity<DossierConsultationDto> response = delegate.searchLoans("DD04063627");
@@ -71,7 +78,6 @@ class LoansApiDelegateImplTest {
 
     @Test
     void searchLoans_bodyNull_retourne404() {
-        // Cas où LoansApi retourne OK mais body null (ex: 404 silencieux RestClient)
         when(loansApi.getLoan("VIDE"))
                 .thenReturn(ResponseEntity.ok(null));
 
@@ -95,12 +101,12 @@ class LoansApiDelegateImplTest {
     void searchLoans_appellePersonnesServicePourResoudreNoms() {
         CommonLoan loan = createCompleteLoan();
         when(loansApi.getLoan("DD04063627")).thenReturn(ResponseEntity.ok(loan));
-        when(personnesService.resoudreEmprunteurCoEmprunteur("PP-001547-E", "PP-001547-C"))
+        when(personnesService.resoudreEmprunteurCoEmprunteur("14336390", "14336391"))
                 .thenReturn(new String[]{"MARTIN Jean-Pierre", "MARTIN Catherine"});
 
         delegate.searchLoans("DD04063627");
 
-        verify(personnesService).resoudreEmprunteurCoEmprunteur("PP-001547-E", "PP-001547-C");
+        verify(personnesService).resoudreEmprunteurCoEmprunteur("14336390", "14336391");
     }
 
     @Test
@@ -129,7 +135,7 @@ class LoansApiDelegateImplTest {
         DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
 
         assertEquals("DD04063627", dto.getNumeroContratSouscritPret());
-        assertEquals("PRJ-2024-08-1547", dto.getNumeroContratSouscritProjet());
+        assertEquals("DD04063627", dto.getNumeroContratSouscritProjet());
     }
 
     @Test
@@ -150,12 +156,12 @@ class LoansApiDelegateImplTest {
 
         DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
 
-        assertEquals("40", dto.getCodeEtat());
-        assertEquals("En gestion", dto.getLibelleEtat());
-        assertEquals("PAP", dto.getCodeNature());
-        assertEquals("Prêt à l'Accession à la Propriété", dto.getLibelleNature());
-        assertEquals("01", dto.getCodeObjet());
-        assertEquals("Acquisition ancien", dto.getLibelleObjet());
+        assertEquals("AA", dto.getCodeEtat());
+        assertEquals("EN COURS NORMALE", dto.getLibelleEtat());
+        assertEquals("110309", dto.getCodeNature());
+        assertEquals("ALTIMMO FIXE", dto.getLibelleNature());
+        assertEquals("AA", dto.getCodeObjet());
+        assertEquals("ACQUISITION ANCIEN", dto.getLibelleObjet());
     }
 
     @Test
@@ -164,9 +170,9 @@ class LoansApiDelegateImplTest {
 
         DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
 
-        assertEquals("PP-001547-E", dto.getNoEmprunteur());
-        assertEquals("PP-001547-C", dto.getNoCoEmprunteur());
-        assertEquals("13807", dto.getEfs());
+        assertEquals("14336390", dto.getNoEmprunteur());
+        assertEquals("14336391", dto.getNoCoEmprunteur());
+        assertEquals("01", dto.getEfs());
         // Noms NON remplis — résolus ensuite via PersonnesService
         assertNull(dto.getEmprunteur());
         assertNull(dto.getCoEmprunteur());
@@ -179,7 +185,7 @@ class LoansApiDelegateImplTest {
 
         DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
 
-        assertEquals("PP-001547-E", dto.getNoEmprunteur());
+        assertEquals("14336390", dto.getNoEmprunteur());
         assertNull(dto.getNoCoEmprunteur());
     }
 
@@ -216,8 +222,10 @@ class LoansApiDelegateImplTest {
 
         DossierConsultationDto dto = delegate.toDossierConsultationDto(loan);
 
-        assertEquals("PAP", dto.getCodeNature());
-        assertEquals("Prêt à l'Accession à la Propriété", dto.getLibelleNature());
+        // Fallback sur typeCode et label quand loanType est absent
+        assertEquals("10117", dto.getCodeNature());
+        // label est null dans le vrai SIGAC — pas de libellé fallback
+        assertNull(dto.getLibelleNature());
     }
 
     @Test
@@ -244,41 +252,50 @@ class LoansApiDelegateImplTest {
 
     // ── Helper ────────────────────────────────────────────────────
 
+    /**
+     * Crée un CommonLoan complet avec les formats réels SIGAC :
+     * - id/masterContractId : 10 chars alphanumériques
+     * - typeCode : 5 chiffres
+     * - loanType.code : 6 chiffres
+     * - personNumber : numérique
+     * - personFederation : code EFS court (01, 03)
+     * - label : null (comme le vrai SIGAC)
+     */
     private CommonLoan createCompleteLoan() {
         CommonLoan loan = new CommonLoan();
         loan.setId("DD04063627");
-        loan.setMasterContractId("PRJ-2024-08-1547");
+        loan.setMasterContractId("DD04063627");
         loan.setDuration(240);
         loan.setBorrowedAmount(BigDecimal.valueOf(250000.0));
         loan.setRate(BigDecimal.valueOf(3.45));
         loan.setAvailableAmount(BigDecimal.valueOf(0.0));
         loan.setPeriodicity(CommonLoan.PeriodicityEnum.M);
-        loan.setLabel("Prêt à l'Accession à la Propriété");
-        loan.setTypeCode("PAP");
+        loan.setLabel(null);  // null dans le vrai SIGAC
+        loan.setTypeCode("10117");
 
         LoanType loanType = new LoanType();
-        loanType.setCode("PAP");
-        loanType.setLabel("Prêt à l'Accession à la Propriété");
+        loanType.setCode("110309");
+        loanType.setLabel("ALTIMMO FIXE");
         loan.setLoanType(loanType);
 
         ObjectCode objectCode = new ObjectCode();
-        objectCode.setCode("01");
-        objectCode.setLabel("Acquisition ancien");
+        objectCode.setCode("AA");
+        objectCode.setLabel("ACQUISITION ANCIEN");
         loan.setObjectCode(objectCode);
 
         LoanState loanState = new LoanState();
-        loanState.setCode("40");
-        loanState.setLabel("En gestion");
+        loanState.setCode("AA");
+        loanState.setLabel("EN COURS NORMALE");
         loan.setLoanState(loanState);
 
         Participant emp = new Participant();
-        emp.setPersonNumber("PP-001547-E");
-        emp.setPersonFederation("13807");
+        emp.setPersonNumber("14336390");
+        emp.setPersonFederation("01");
         emp.setRoleCode("EMP");
 
         Participant coe = new Participant();
-        coe.setPersonNumber("PP-001547-C");
-        coe.setPersonFederation("13807");
+        coe.setPersonNumber("14336391");
+        coe.setPersonFederation("01");
         coe.setRoleCode("COE");
 
         loan.setParticipants(List.of(emp, coe));

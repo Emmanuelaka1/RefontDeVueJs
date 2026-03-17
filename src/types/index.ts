@@ -110,4 +110,6 @@ export interface ServiceResponse<T> {
 export interface PretService {
   getDossier(id: string): Promise<ServiceResponse<DossierPret>>
   listerDossiers(): Promise<ServiceResponse<DossierResume[]>>
+  /** Recherche un prêt par N° contrat souscrit via le LoansController */
+  rechercherPret?(numeroPret: string): Promise<ServiceResponse<DossierResume[]>>
 }

@@ -67,7 +67,17 @@ dependencies {
     // Tests
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'io.rest-assured:rest-assured:5.4.0'
 }
+
+bootRun {
+	args = ["--spring.profiles.active=dev"]
+
+	jvmArgs = [
+	"-Xms256m",
+	"-Xmx512m"
+	]
+ }
 
 // ── Génération Thrift ─────────────────────────────────────────────
 def thriftSrcDir = "${projectDir}/src/main/thrift"

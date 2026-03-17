@@ -35,14 +35,12 @@ public class PersonnesMockDao implements IPersonnesDao {
     void initMockData() {
         log.info("Initialisation des données mock pour les personnes");
 
-        personnesStore.put("PP-001547-E", new PersonneMinimaleDto("PP-001547-E", "MARTIN", "Jean-Pierre", "PP"));
-        personnesStore.put("PP-001547-C", new PersonneMinimaleDto("PP-001547-C", "MARTIN", "Catherine", "PP"));
-        personnesStore.put("PP-002891-E", new PersonneMinimaleDto("PP-002891-E", "DUPONT", "Marie", "PP"));
-        personnesStore.put("PP-002891-C", new PersonneMinimaleDto("PP-002891-C", "DUPONT", "François", "PP"));
-        personnesStore.put("PP-000412-E", new PersonneMinimaleDto("PP-000412-E", "LECLERC", "Sophie", "PP"));
-        personnesStore.put("PP-003102-E", new PersonneMinimaleDto("PP-003102-E", "BERNARD", "Alain", "PP"));
-        personnesStore.put("PP-003102-C", new PersonneMinimaleDto("PP-003102-C", "BERNARD", "Nathalie", "PP"));
-        personnesStore.put("PP-001890-E", new PersonneMinimaleDto("PP-001890-E", "NGUYEN", "Van Thi", "PP"));
+        // Identifiants alignés sur les personNumber du LoansApiDaoMock (format réel SIGAC)
+        personnesStore.put("14336390", new PersonneMinimaleDto("14336390", "MARTIN", "Jean-Pierre", "PP"));
+        personnesStore.put("14336391", new PersonneMinimaleDto("14336391", "MARTIN", "Catherine", "PP"));
+        personnesStore.put("15789012", new PersonneMinimaleDto("15789012", "DUPONT", "Marie", "PP"));
+        personnesStore.put("15789013", new PersonneMinimaleDto("15789013", "DUPONT", "François", "PP"));
+        personnesStore.put("12004567", new PersonneMinimaleDto("12004567", "LECLERC", "Sophie", "PP"));
 
         log.info("{} personnes mock initialisées", personnesStore.size());
     }
