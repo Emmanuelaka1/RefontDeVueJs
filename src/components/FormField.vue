@@ -1,7 +1,9 @@
 <template>
   <div class="form-field" :class="{ empty: !label }" :data-testid="testId">
     <label v-if="label" class="field-label">{{ label }}</label>
-    <span v-if="label" class="field-value">{{ modelValue }}</span>
+    <span v-if="label" class="field-value" :class="{ 'field-value--empty': !modelValue }">
+      {{ modelValue || '—' }}
+    </span>
   </div>
 </template>
 
@@ -25,7 +27,7 @@ withDefaults(
   display: flex;
   align-items: center;
   gap: $space-sm;
-  min-height: 32px;
+  min-height: 34px;
 
   &.empty {
     visibility: hidden;
@@ -33,11 +35,11 @@ withDefaults(
 }
 
 .field-label {
-  font-size: $font-size-base;
-  font-weight: $font-weight-bold;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
   color: var(--text-label);
   white-space: nowrap;
-  width: 180px;
+  width: 185px;
   flex-shrink: 0;
   line-height: 1.3;
 }
@@ -45,11 +47,19 @@ withDefaults(
 .field-value {
   flex: 1;
   background: var(--bg-input);
-  font-size: $font-size-base;
+  font-size: $font-size-sm;
   color: var(--text-primary);
-  min-height: 24px;
-  padding: $space-xxs $space-sm;
+  min-height: 28px;
+  padding: $space-xs $space-md;
   border: 1px solid var(--border-input);
-  border-radius: $border-radius-sm;
+  border-radius: $border-radius;
+  display: flex;
+  align-items: center;
+  transition: border-color $transition-base;
+
+  &--empty {
+    color: var(--text-muted);
+    font-style: italic;
+  }
 }
 </style>

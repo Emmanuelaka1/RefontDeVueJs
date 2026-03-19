@@ -42,6 +42,10 @@
   --sidebar-border: #{$primary-ciel};
   --sidebar-active-bg: #{$primary-apptabs};
   --sidebar-active-text: #{$white};
+  --sidebar-icon-active-bg: #{$primary};
+  --sidebar-icon-active-text: #{$white};
+  --sidebar-icon-active-shadow: 0 2px 6px rgba(#{$primary}, 0.25);
+  --sidebar-accent: #{$primary};
 
   // Tabs
   --tab-active-bg: #{$primary-apptabs};
@@ -93,9 +97,14 @@ html.dark-mode {
   --hover-text: #60a5fa;
 
   // Sidebar
-  --sidebar-border: rgba(29, 176, 255, 0.4);
-  --sidebar-active-bg: rgba(110, 204, 241, 0.2);
-  --sidebar-active-text: #93c5fd;
+  --sidebar-bg: #162032;
+  --sidebar-border: rgba(56, 189, 248, 0.5);
+  --sidebar-active-bg: rgba(56, 189, 248, 0.12);
+  --sidebar-active-text: #7dd3fc;
+  --sidebar-icon-active-bg: rgba(56, 189, 248, 0.2);
+  --sidebar-icon-active-text: #7dd3fc;
+  --sidebar-icon-active-shadow: 0 2px 8px rgba(56, 189, 248, 0.3);
+  --sidebar-accent: #38bdf8;
 
   // Tabs
   --tab-active-bg: rgba(110, 204, 241, 0.2);

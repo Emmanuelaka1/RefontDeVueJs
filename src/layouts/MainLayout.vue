@@ -57,7 +57,8 @@ const store = usePretStore()
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 10px;
+  padding: $space-md;
+  gap: 0;
 }
 
 .content-card {
@@ -65,22 +66,22 @@ const store = usePretStore()
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 2px solid var(--border-card);
+  border: 1px solid var(--border-main);
   border-top: none;
-  border-radius: $border-radius-lg;
-  box-shadow: $shadow-sm;
+  border-radius: 0 0 $border-radius-lg $border-radius-lg;
+  box-shadow: $shadow-md;
 }
 
 .blue-bar {
   height: $blue-bar-height;
-  background: var(--blue-bar-bg);
+  background: linear-gradient(90deg, var(--blue-bar-bg) 0%, rgba(#1db0ff, 0.6) 100%);
   flex-shrink: 0;
 }
 
 .content-area {
   flex: 1;
   overflow-y: auto;
-  padding: $space-xl $space-xxl;
+  padding: $space-xxl $space-xxxl;
   background: var(--bg-content);
 }
 

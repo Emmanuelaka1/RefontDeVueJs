@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, reactive } from 'vue'
 import type {
   DossierPret,
+  DossierResume,
   DonneesGenerales,
   DonneesPret,
   DatesPret,
@@ -26,6 +27,12 @@ export const usePretStore = defineStore('pret', () => {
     prenom: 'Jean',
     initiales: 'JD',
   })
+
+  // État de la recherche (persisté entre navigations)
+  const rechercheNumeroPret = ref<string>('')
+  const rechercheResultats = ref<DossierResume[]>([])
+  const rechercheLancee = ref<boolean>(false)
+  const rechercheErreur = ref<string | null>(null)
 
   // Sections dépliables
   const sections = reactive<SectionState>({
@@ -172,6 +179,11 @@ export const usePretStore = defineStore('pret', () => {
     sidebarCollapsed,
     darkMode,
     currentUser,
+    // Recherche
+    rechercheNumeroPret,
+    rechercheResultats,
+    rechercheLancee,
+    rechercheErreur,
     // Actions
     toggleSection,
     setActiveTab,

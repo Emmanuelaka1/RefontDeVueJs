@@ -1,8 +1,11 @@
 <template>
   <aside class="app-sidebar" :class="{ collapsed }" data-testid="sidebar">
+    <!-- Header -->
     <div v-if="!collapsed" class="sidebar-header">
-      <span class="sidebar-header-label">Navigation</span>
+      <span class="sidebar-header-label">Menu</span>
     </div>
+
+    <!-- Navigation -->
     <nav class="sidebar-nav">
       <div
         v-for="item in sidebarItems"
@@ -16,9 +19,19 @@
         <span class="sidebar-icon-wrap">
           <i v-if="item.icon" class="pi sidebar-icon" :class="item.icon" />
         </span>
-        <span v-if="!collapsed" class="sidebar-label">{{ item.label }}</span>
+        <Transition name="label-fade">
+          <span v-if="!collapsed" class="sidebar-label">{{ item.label }}</span>
+        </Transition>
       </div>
     </nav>
+
+    <!-- Footer -->
+    <div v-if="!collapsed" class="sidebar-footer">
+      <div class="sidebar-footer-content">
+        <i class="pi pi-info-circle" />
+        <span>SIGAC v1.0</span>
+      </div>
+    </div>
   </aside>
 </template>
 
@@ -37,14 +50,13 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
   width: $sidebar-width;
   min-width: $sidebar-width;
   background: var(--sidebar-bg);
-  border-right: 3px solid var(--sidebar-border);
+  border-right: 5px solid var(--sidebar-border);
   display: flex;
   flex-direction: column;
   user-select: none;
-  transition: width $transition-base, min-width $transition-base;
+  transition: width $transition-slow, min-width $transition-slow;
   overflow: hidden;
   z-index: $z-sidebar;
-  box-shadow: var(--sidebar-depth);
 
   &.collapsed {
     width: $sidebar-collapsed-width;
@@ -52,8 +64,9 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
   }
 }
 
+// ── Header ──
 .sidebar-header {
-  padding: $space-lg $space-lg $space-xs;
+  padding: $space-lg $space-xl $space-sm;
 }
 
 .sidebar-header-label {
@@ -61,15 +74,16 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
   font-weight: $font-weight-bold;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 1.2px;
+  letter-spacing: 1.5px;
 }
 
+// ── Navigation ──
 .sidebar-nav {
   flex: 1;
   display: flex;
   flex-direction: column;
   padding: $space-xs $space-sm;
-  gap: 2px;
+  gap: $space-xxs;
 
   .collapsed & {
     padding: $space-sm $space-xs;
@@ -80,9 +94,9 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
 .sidebar-item {
   display: flex;
   align-items: center;
-  gap: $space-sm;
-  padding: 7px $space-md;
-  font-size: $font-size-md;
+  gap: 10px;
+  padding: 10px $space-lg;
+  font-size: $font-size-sm;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all $transition-base;
@@ -97,9 +111,13 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
     border-radius: $border-radius;
   }
 
-  &:hover {
+  &:hover:not(.active) {
     background: var(--hover-bg);
     color: var(--hover-text);
+
+    .sidebar-icon-wrap {
+      background: var(--hover-bg);
+    }
   }
 
   &.active {
@@ -107,7 +125,17 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
     color: var(--sidebar-active-text);
     font-weight: $font-weight-semibold;
 
-    // Floating left accent strip
+    .sidebar-icon-wrap {
+      background: var(--sidebar-icon-active-bg);
+      color: var(--sidebar-icon-active-text);
+      box-shadow: var(--sidebar-icon-active-shadow);
+    }
+
+    .sidebar-icon {
+      color: var(--sidebar-icon-active-text);
+    }
+
+    // Left accent bar
     &::before {
       content: '';
       position: absolute;
@@ -115,9 +143,9 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
       top: 50%;
       transform: translateY(-50%);
       width: 3px;
-      height: 55%;
-      border-radius: 0 3px 3px 0;
-      background: var(--sidebar-border);
+      height: 60%;
+      border-radius: 0 4px 4px 0;
+      background: var(--sidebar-accent);
     }
 
     .collapsed & {
@@ -126,39 +154,73 @@ const { sidebarItems, activeSidebarId, selectSidebarItem } = useNavigation()
         top: auto;
         bottom: 0;
         transform: translateX(-50%);
-        width: 55%;
+        width: 60%;
         height: 3px;
-        border-radius: 3px 3px 0 0;
+        border-radius: 4px 4px 0 0;
       }
     }
   }
 }
 
 .sidebar-icon-wrap {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: $border-radius;
+  border-radius: $border-radius-lg;
   flex-shrink: 0;
   transition: all $transition-base;
+  background: transparent;
 
   .collapsed & {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
   }
 }
 
 .sidebar-icon {
-  font-size: 16px;
+  font-size: 15px;
   flex-shrink: 0;
+  transition: color $transition-base;
 }
 
 .sidebar-label {
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: $font-size-sm;
+  letter-spacing: 0.1px;
+}
+
+// ── Footer ──
+.sidebar-footer {
+  padding: $space-md $space-lg;
+  border-top: 1px solid var(--border-light);
+}
+
+.sidebar-footer-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+
+  .pi {
+    font-size: 11px;
+    opacity: 0.5;
+  }
+}
+
+// ── Transitions ──
+.label-fade-enter-active,
+.label-fade-leave-active {
+  transition: opacity $transition-base;
+}
+
+.label-fade-enter-from,
+.label-fade-leave-to {
+  opacity: 0;
 }
 </style>
