@@ -15,7 +15,9 @@
     "lint": "eslint src --ext .vue,.ts,.tsx --fix",
     "type-check": "vue-tsc --noEmit",
     "api:generate": "openapi-typescript openapi/sigac-prets.yaml -o src/types/api.d.ts",
-    "api:validate": "openapi-typescript openapi/sigac-prets.yaml --check"
+    "api:validate": "openapi-typescript openapi/sigac-prets.yaml --check",
+    "api:local": "npx swagger-typescript-api generate --patch --module-name-first-tag --modular --single-http-client -p http://localhost:9088/v3/api-docs/default -o ./src/api/generated -n sgeservices.ts",
+    "api:local:file": "npx swagger-typescript-api generate --patch --module-name-first-tag --modular --single-http-client -p ./openapi/sgesapi.json -o ./src/api/generated -n sgeservices.ts"
   },
   "dependencies": {
     "pinia": "^2.1.7",

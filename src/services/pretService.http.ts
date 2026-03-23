@@ -1,45 +1,12 @@
-import type { PretService, DossierPret, DossierResume, ServiceResponse } from '@/types'
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
-
-/**
- * Réponse plate du LoansController (DossierConsultationDto côté Java).
- * Les champs correspondent au JSON retourné par GET /api/v1/loans/{numeroPret}.
- */
-interface DossierConsultationDto {
-  noEmprunteur: string | null
-  noCoEmprunteur: string | null
-  emprunteur: string | null
-  coEmprunteur: string | null
-  numeroPret: string | null
-  numeroContratSouscritProjet: string | null
-  numeroContratSouscritPret: string | null
-  efs: string | null
-  structure: string | null
-  codeEtat: string | null
-  libelleEtat: string | null
-  codeObjet: string | null
-  libelleObjet: string | null
-  codeNature: string | null
-  libelleNature: string | null
-  montantPret: number | null
-  dureePret: number | null
-  tauxRemboursement: number | null
-  tauxFranchise: number | null
-  tauxBonification: number | null
-  anticipation: boolean | null
-  typeAmortissement: string | null
-  outilInstruction: string | null
-  montantDebloque: number | null
-  montantDisponible: number | null
-  montantRA: number | null
-  encours: number | null
-  teg: number | null
-}
+import type { PretService, DossierPret, DossierResume as FrontDossierResume, ServiceResponse } from '@/types'
+import {
+  loansApi,
+  type DossierConsultationDto,
+} from '@/api'
 
 // ── Fonctions de formatage ──────────────────────────────────────
 
-function formatMontant(value: number | null): string {
+function formatMontant(value?: number | null): string {
   if (value == null) return ''
   return (
     value.toLocaleString('fr-FR', {
@@ -49,7 +16,7 @@ function formatMontant(value: number | null): string {
   )
 }
 
-function formatTaux(value: number | null): string {
+function formatTaux(value?: number | null): string {
   if (value == null) return ''
   return (
     value.toLocaleString('fr-FR', {
@@ -59,36 +26,32 @@ function formatTaux(value: number | null): string {
   )
 }
 
-// ── Mapping DossierConsultationDto → types front ────────────────
+function codeLabel(code?: string, label?: string): string {
+  if (code && label) return `${code} - ${label}`
+  return code || ''
+}
+
+// ── Mapping API → types front ───────────────────────────────────
 
 /**
- * Convertit le DTO plat du backend en DossierPret imbriqué attendu par le front.
+ * Convertit un DossierConsultationDto (GET /api/v1/loans/{id})
+ * en DossierPret imbriqué attendu par le front.
  */
-function toDossierPret(dto: DossierConsultationDto): DossierPret {
-  const id = dto.numeroContratSouscritPret || ''
-
+function dtoToDossierPret(dto: DossierConsultationDto | null | undefined): DossierPret {
+  if (!dto) throw new Error('Réponse vide du serveur')
   return {
-    id,
+    id: dto.numeroContratSouscritPret || dto.numeroPret || '',
     donneesGenerales: {
       emprunteur: dto.emprunteur || '',
       coEmprunteur: dto.coEmprunteur || '',
-      noPret: dto.numeroContratSouscritPret || '',
+      noPret: dto.numeroContratSouscritPret || dto.numeroPret || '',
       noContratSouscritProjet: dto.numeroContratSouscritProjet || '',
       noContratSouscritPret: dto.numeroContratSouscritPret || '',
       efs: dto.efs || '',
       structure: dto.structure || '',
-      codeEtat:
-        dto.codeEtat && dto.libelleEtat
-          ? `${dto.codeEtat} - ${dto.libelleEtat}`
-          : dto.codeEtat || '',
-      codeObjet:
-        dto.codeObjet && dto.libelleObjet
-          ? `${dto.codeObjet} - ${dto.libelleObjet}`
-          : dto.codeObjet || '',
-      codeNature:
-        dto.codeNature && dto.libelleNature
-          ? `${dto.codeNature} - ${dto.libelleNature}`
-          : dto.codeNature || '',
+      codeEtat: codeLabel(dto.codeEtat, dto.libelleEtat),
+      codeObjet: codeLabel(dto.codeObjet, dto.libelleObjet),
+      codeNature: codeLabel(dto.codeNature, dto.libelleNature),
     },
     donneesPret: {
       montantPret: formatMontant(dto.montantPret),
@@ -127,112 +90,104 @@ function toDossierPret(dto: DossierConsultationDto): DossierPret {
 }
 
 /**
- * Convertit le DTO plat en résumé pour la liste de recherche.
+ * Convertit un DossierConsultationDto en résumé pour la liste de recherche.
  */
-function toDossierResume(dto: DossierConsultationDto): DossierResume {
+function dtoToResume(dto: DossierConsultationDto | null | undefined): FrontDossierResume {
+  if (!dto) throw new Error('Réponse vide du serveur')
   return {
-    id: dto.numeroContratSouscritPret || '',
-    noPret: dto.numeroContratSouscritPret || '',
+    id: dto.numeroContratSouscritPret || dto.numeroPret || '',
+    noPret: dto.numeroContratSouscritPret || dto.numeroPret || '',
     emprunteur: dto.emprunteur || '',
     montantPret: formatMontant(dto.montantPret),
-    codeEtat:
-      dto.codeEtat && dto.libelleEtat
-        ? `${dto.codeEtat} - ${dto.libelleEtat}`
-        : dto.codeEtat || '',
+    codeEtat: codeLabel(dto.codeEtat, dto.libelleEtat),
   }
 }
 
 /**
  * Implémentation HTTP du service de prêts.
- * Appelle le LoansController du backend sgesapi :
- *   GET /api/v1/loans/{numeroPret} → DossierConsultationDto (plat)
- * et mappe la réponse vers les types du front (DossierPret imbriqué).
+ * Utilise le client TypeScript généré par swagger-typescript-api.
+ *
+ * Tous les appels passent par le LoansController :
+ *   GET /api/v1/loans/{numeroPret} → DossierConsultationDto
  */
+/**
+ * Extrait le code HTTP d'une erreur levée par le HttpClient généré.
+ * Le HttpClient fait `throw data` (HttpResponse) pour les réponses non-OK.
+ */
+function getHttpStatus(error: unknown): number | null {
+  if (error && typeof error === 'object' && 'status' in error) {
+    return (error as { status: number }).status
+  }
+  return null
+}
+
 export class HttpPretService implements PretService {
   /**
-   * Recherche un prêt par son numéro de contrat souscrit.
-   * Appelle GET /api/v1/loans/{id} sur le LoansController.
+   * Consulte un dossier complet.
+   * GET /api/v1/loans/{numeroPret} → DossierConsultationDto → DossierPret
    */
   async getDossier(id: string): Promise<ServiceResponse<DossierPret>> {
     try {
-      const response = await fetch(`${BASE_URL}/loans/${id}`)
-
-      if (response.status === 404) {
+      const response = await loansApi.searchLoans(id)
+      return {
+        data: dtoToDossierPret(response.data),
+        success: true,
+      }
+    } catch (error) {
+      const status = getHttpStatus(error)
+      if (status === 404) {
         return {
           data: null as unknown as DossierPret,
           success: false,
           message: `Prêt "${id}" introuvable`,
         }
       }
-
-      if (!response.ok) {
-        return {
-          data: null as unknown as DossierPret,
-          success: false,
-          message: `Erreur HTTP ${response.status} : ${response.statusText}`,
-        }
-      }
-
-      const dto: DossierConsultationDto = await response.json()
-      return {
-        data: toDossierPret(dto),
-        success: true,
-      }
-    } catch (error) {
       return {
         data: null as unknown as DossierPret,
         success: false,
-        message: `Erreur réseau : ${error instanceof Error ? error.message : String(error)}`,
+        message: status
+          ? `Erreur HTTP ${status}`
+          : `Erreur réseau : ${error instanceof Error ? error.message : String(error)}`,
       }
     }
   }
 
   /**
-   * Le LoansController n'expose pas d'endpoint de liste.
-   * Retourne un tableau vide — la recherche se fait via rechercherPret().
+   * Pas d'endpoint de liste — retourne un tableau vide.
    */
-  async listerDossiers(): Promise<ServiceResponse<DossierResume[]>> {
+  async listerDossiers(): Promise<ServiceResponse<FrontDossierResume[]>> {
     return {
       data: [],
       success: true,
-      message: 'Utilisez la recherche par N° de prêt',
     }
   }
 
   /**
-   * Recherche un prêt par son numéro et retourne un résumé.
-   * Appelle GET /api/v1/loans/{numeroPret} et mappe en DossierResume.
+   * Recherche un prêt par N° via le LoansController.
+   * GET /api/v1/loans/{numeroPret} → DossierConsultationDto → DossierResume[]
    */
-  async rechercherPret(numeroPret: string): Promise<ServiceResponse<DossierResume[]>> {
+  async rechercherPret(numeroPret: string): Promise<ServiceResponse<FrontDossierResume[]>> {
     try {
-      const response = await fetch(`${BASE_URL}/loans/${numeroPret}`)
-
-      if (response.status === 404) {
+      const response = await loansApi.searchLoans(numeroPret)
+      return {
+        data: [dtoToResume(response.data)],
+        success: true,
+      }
+    } catch (error) {
+      const status = getHttpStatus(error)
+      if (status === 404) {
         return {
           data: [],
           success: true,
           message: `Aucun prêt trouvé pour "${numeroPret}"`,
         }
       }
-
-      if (!response.ok) {
-        return {
-          data: [],
-          success: false,
-          message: `Erreur HTTP ${response.status} : ${response.statusText}`,
-        }
-      }
-
-      const dto: DossierConsultationDto = await response.json()
-      return {
-        data: [toDossierResume(dto)],
-        success: true,
-      }
-    } catch (error) {
       return {
         data: [],
         success: false,
-        message: `Erreur réseau : ${error instanceof Error ? error.message : String(error)}`,
+        message: status
+          ? `Erreur HTTP ${status}`
+          : `Erreur réseau : ${error instanceof Error ? error.message : String(error)}`,
       }
     }
   }

@@ -26,7 +26,36 @@ export default defineConfig({
     // Cherche les fichiers de test dans tests/unit/ (*.test.ts ou *.spec.ts)
     include: ['tests/unit/**/*.{test,spec}.{ts,tsx}'],
 
-    // Couverture Istanbul (auto-detecte @vitest/coverage-istanbul)
-    coverage: { provider: 'istanbul' },
+    // Couverture Istanbul
+    coverage: {
+      provider: 'istanbul',
+      reportsDirectory: '/sessions/cool-zen-pascal/coverage-out',
+      include: [
+        'src/services/**',
+        'src/stores/**',
+        'src/composables/**',
+        'src/components/**',
+        'src/views/**',
+        'src/data/**',
+      ],
+      exclude: [
+        'src/api/generated/**',
+        'src/assets/**',
+        'src/main.ts',
+        'src/App.vue',
+        'src/router/**',
+        'src/layouts/**',
+        'src/env.d.ts',
+        'src/types/**',
+        // FormField.vue : composant pur présentation (defineProps uniquement, 0 logique métier)
+        'src/components/FormField.vue',
+      ],
+      thresholds: {
+        statements: 80,
+        branches: 80,
+        functions: 80,
+        lines: 80,
+      },
+    },
   },
 })

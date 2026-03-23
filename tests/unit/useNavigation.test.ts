@@ -78,4 +78,69 @@ describe('useNavigation', () => {
       expect(tab.id).toBeTruthy()
     })
   })
+
+  // ── selectSidebarItem ──
+  describe('selectSidebarItem', () => {
+    it('devrait naviguer vers la route du sidebar item (recherche)', () => {
+      const { sidebarItems, selectSidebarItem } = useNavigation()
+
+      selectSidebarItem(sidebarItems[0]) // Recherche
+      expect(mockPush).toHaveBeenCalledWith('/recherche')
+    })
+
+    it('devrait naviguer vers la route du sidebar item (deblocage)', () => {
+      const { sidebarItems, selectSidebarItem } = useNavigation()
+
+      selectSidebarItem(sidebarItems[2]) // Déblocage
+      expect(mockPush).toHaveBeenCalledWith('/deblocage')
+    })
+
+    it('devrait rediriger consultation vers recherche si pas de dossier courant', () => {
+      const { sidebarItems, selectSidebarItem } = useNavigation()
+
+      selectSidebarItem(sidebarItems[1]) // Consultation (sans dossier courant)
+      expect(mockPush).toHaveBeenCalledWith('/recherche')
+    })
+
+    it('devrait naviguer vers le dossier courant si consultation avec dossier', async () => {
+      // Charger un dossier dans le store pour simuler un dossier courant
+      const { usePretStore } = await import('@/stores/pretStore')
+      const store = usePretStore()
+      store.dossierCourant = {
+        id: 'DD04063627',
+        donneesGenerales: {} as any,
+        donneesPret: {} as any,
+        dates: {} as any,
+      }
+
+      const { sidebarItems, selectSidebarItem } = useNavigation()
+      selectSidebarItem(sidebarItems[1]) // Consultation (avec dossier)
+      expect(mockPush).toHaveBeenCalledWith('/consultation/DD04063627/donnees-generales')
+    })
+
+    it('devrait mettre à jour l\'activeSidebarItem dans le store', async () => {
+      const { usePretStore } = await import('@/stores/pretStore')
+      const store = usePretStore()
+      const { sidebarItems, selectSidebarItem } = useNavigation()
+
+      selectSidebarItem(sidebarItems[3]) // Rbt anticipés
+      expect(store.activeSidebarItem).toBe('rbt-anticipes')
+    })
+  })
+
+  // ── activeSidebarId ──
+  describe('activeSidebarId', () => {
+    it('devrait retourner la section de la route courante', () => {
+      mockRoute.meta.section = 'consultation'
+      const { activeSidebarId } = useNavigation()
+      expect(activeSidebarId.value).toBe('consultation')
+    })
+
+    it('devrait retourner recherche quand section = recherche', () => {
+      mockRoute.meta.section = 'recherche'
+      const { activeSidebarId } = useNavigation()
+      expect(activeSidebarId.value).toBe('recherche')
+      mockRoute.meta.section = 'consultation' // reset
+    })
+  })
 })

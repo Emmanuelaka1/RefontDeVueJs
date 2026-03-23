@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { usePretStore } from '@/stores/pretStore'
 
@@ -18,8 +18,8 @@ describe('pretStore', () => {
       expect(store.sections.dates).toBe(true)
     })
 
-    it('devrait avoir "consultation" comme item sidebar actif', () => {
-      expect(store.activeSidebarItem).toBe('consultation')
+    it('devrait avoir "recherche" comme item sidebar actif', () => {
+      expect(store.activeSidebarItem).toBe('recherche')
     })
 
     it('devrait avoir "donnees-generales" comme onglet actif', () => {
@@ -48,6 +48,13 @@ describe('pretStore', () => {
 
     it('ne devrait pas avoir d\'erreur', () => {
       expect(store.error).toBeNull()
+    })
+
+    it('devrait avoir l\'état de recherche vide', () => {
+      expect(store.rechercheNumeroPret).toBe('')
+      expect(store.rechercheResultats).toEqual([])
+      expect(store.rechercheLancee).toBe(false)
+      expect(store.rechercheErreur).toBeNull()
     })
   })
 
@@ -113,6 +120,63 @@ describe('pretStore', () => {
     })
   })
 
+  // ── toggleSidebar ──
+  describe('toggleSidebar', () => {
+    it('devrait collapse la sidebar', () => {
+      expect(store.sidebarCollapsed).toBe(false)
+      store.toggleSidebar()
+      expect(store.sidebarCollapsed).toBe(true)
+    })
+
+    it('devrait expand la sidebar', () => {
+      store.sidebarCollapsed = true
+      store.toggleSidebar()
+      expect(store.sidebarCollapsed).toBe(false)
+    })
+  })
+
+  // ── toggleDarkMode ──
+  describe('toggleDarkMode', () => {
+    it('devrait activer le dark mode', () => {
+      expect(store.darkMode).toBe(false)
+      store.toggleDarkMode()
+      expect(store.darkMode).toBe(true)
+    })
+
+    it('devrait désactiver le dark mode', () => {
+      store.darkMode = true
+      store.toggleDarkMode()
+      expect(store.darkMode).toBe(false)
+    })
+  })
+
+  // ── État recherche (persisté) ──
+  describe('état recherche', () => {
+    it('devrait persister le numéro de prêt recherché', () => {
+      store.rechercheNumeroPret = 'DD04063627'
+      expect(store.rechercheNumeroPret).toBe('DD04063627')
+    })
+
+    it('devrait persister les résultats de recherche', () => {
+      const resultats = [
+        { id: 'DD04063627', noPret: 'DD04063627', emprunteur: 'MARTIN', montantPret: '250 000 €', codeEtat: 'AA' },
+      ]
+      store.rechercheResultats = resultats
+      expect(store.rechercheResultats).toHaveLength(1)
+      expect(store.rechercheResultats[0].id).toBe('DD04063627')
+    })
+
+    it('devrait persister l\'état rechercheLancee', () => {
+      store.rechercheLancee = true
+      expect(store.rechercheLancee).toBe(true)
+    })
+
+    it('devrait persister l\'erreur de recherche', () => {
+      store.rechercheErreur = 'Prêt introuvable'
+      expect(store.rechercheErreur).toBe('Prêt introuvable')
+    })
+  })
+
   // ── chargerDossier ──
   describe('chargerDossier', () => {
     it('devrait remplir les champs réactifs avec les données mock', async () => {
@@ -132,6 +196,22 @@ describe('pretStore', () => {
       expect(store.error).toBeTruthy()
       expect(store.dossierCourant).toBeNull()
       expect(store.loading).toBe(false)
+    })
+
+    it('devrait gérer une exception du service (catch)', async () => {
+      // Mock getPretService pour qu'il retourne un service qui throw
+      const pretServiceModule = await import('@/services/pretService')
+      vi.spyOn(pretServiceModule, 'getPretService').mockResolvedValue({
+        getDossier: () => { throw new Error('Erreur inattendue') },
+        listerDossiers: vi.fn(),
+      } as any)
+
+      await store.chargerDossier('DOSS-2024-001')
+
+      expect(store.error).toBe('Erreur lors du chargement du dossier')
+      expect(store.loading).toBe(false)
+
+      vi.restoreAllMocks()
     })
   })
 
