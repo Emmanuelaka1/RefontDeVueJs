@@ -1,14 +1,13 @@
 describe('Store - Actions et état', () => {
-  beforeEach(() => {
-    cy.visit('/consultation/donnees-generales')
-  })
-
   // ═══════════════════════════════════
   // Chargement du dossier (chargerDossier)
   // ═══════════════════════════════════
   describe('Chargement du dossier', () => {
+    beforeEach(() => {
+      cy.visitConsultation('DOSS-2024-001')
+    })
+
     it('devrait charger et afficher les données du premier dossier', () => {
-      // Le dossier se charge automatiquement onMounted via le mock service
       cy.getByTestId('field-emprunteur').should('be.visible')
     })
 
@@ -19,11 +18,7 @@ describe('Store - Actions et état', () => {
 
     it('devrait afficher les données de dates chargées', () => {
       cy.getByTestId('section-body-dates').should('be.visible')
-      cy.getByTestId('section-body-dates').should("contain", "Date d'acceptation")
-    })
-
-    it('devrait afficher le select de dossiers', () => {
-      cy.get('.dossier-select').should('be.visible')
+      cy.getByTestId('section-body-dates').should('contain', "Date d'acceptation")
     })
 
     it('devrait ne pas afficher le bandeau d\'erreur par défaut', () => {
@@ -36,26 +31,13 @@ describe('Store - Actions et état', () => {
   })
 
   // ═══════════════════════════════════
-  // Sélecteur de dossier
-  // ═══════════════════════════════════
-  describe('Sélecteur de dossier', () => {
-    it('devrait changer de dossier au changement de select', () => {
-      cy.get('.dossier-select').then(($select) => {
-        const options = $select.find('option')
-        if (options.length > 1) {
-          // Sélectionner le deuxième dossier
-          cy.get('.dossier-select').select(1)
-          cy.get('.loading-indicator').should('not.exist')
-          cy.getByTestId('section-body-general').should('be.visible')
-        }
-      })
-    })
-  })
-
-  // ═══════════════════════════════════
   // État des sections après navigation
   // ═══════════════════════════════════
   describe('Persistance état sections lors de la navigation', () => {
+    beforeEach(() => {
+      cy.visitConsultation('DOSS-2024-001')
+    })
+
     it('devrait conserver les sections fermées après navigation onglet → retour', () => {
       cy.toggleSection('pret')
       cy.getByTestId('section-body-pret').should('not.be.visible')
@@ -71,7 +53,7 @@ describe('Store - Actions et état', () => {
       cy.getByTestId('section-body-general').should('be.visible')
 
       cy.clickSidebarItem('deblocage')
-      cy.clickSidebarItem('consultation')
+      cy.visitConsultation('DOSS-2024-001')
 
       cy.getByTestId('section-body-general').should('be.visible')
     })
@@ -81,18 +63,23 @@ describe('Store - Actions et état', () => {
   // Dark mode (état global)
   // ═══════════════════════════════════
   describe('Dark mode - persistance état', () => {
-    it('devrait conserver le dark mode après navigation', () => {
+    beforeEach(() => {
+      cy.visit('/recherche')
+    })
+
+    it('devrait conserver le dark mode après navigation sidebar', () => {
       cy.toggleDarkMode()
       cy.get('html').should('have.class', 'dark-mode')
 
       cy.clickSidebarItem('deblocage')
       cy.get('html').should('have.class', 'dark-mode')
 
-      cy.clickSidebarItem('consultation')
+      cy.clickSidebarItem('recherche')
       cy.get('html').should('have.class', 'dark-mode')
     })
 
     it('devrait conserver le dark mode après changement d\'onglet', () => {
+      cy.visitConsultation('DOSS-2024-001')
       cy.toggleDarkMode()
       cy.clickTab('paliers')
       cy.get('html').should('have.class', 'dark-mode')
@@ -105,6 +92,10 @@ describe('Store - Actions et état', () => {
   // Sidebar collapse - persistance état
   // ═══════════════════════════════════
   describe('Sidebar collapse - persistance état', () => {
+    beforeEach(() => {
+      cy.visit('/recherche')
+    })
+
     it('devrait conserver la sidebar réduite après navigation', () => {
       cy.toggleSidebar()
       cy.getByTestId('sidebar').should('have.class', 'collapsed')
@@ -114,6 +105,7 @@ describe('Store - Actions et état', () => {
     })
 
     it('devrait conserver la sidebar réduite après changement d\'onglet', () => {
+      cy.visitConsultation('DOSS-2024-001')
       cy.toggleSidebar()
       cy.clickTab('paliers')
       cy.getByTestId('sidebar').should('have.class', 'collapsed')

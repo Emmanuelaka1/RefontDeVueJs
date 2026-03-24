@@ -1,6 +1,6 @@
 describe('Toolbar', () => {
   beforeEach(() => {
-    cy.visit('/')
+    cy.visit('/recherche')
   })
 
   // ═══════════════════════════════════
@@ -56,16 +56,16 @@ describe('Toolbar', () => {
 
     it('devrait garder les icônes sidebar visibles après collapse', () => {
       cy.getByTestId('hamburger-btn').click()
-      cy.getByTestId('sidebar-item-consultation').should('be.visible')
+      cy.getByTestId('sidebar-item-recherche').should('be.visible')
     })
 
-    it('devrait afficher le header sidebar "Navigation" par défaut', () => {
-      cy.getByTestId('sidebar').should('contain', 'Navigation')
+    it('devrait afficher le header sidebar "Menu" par défaut', () => {
+      cy.getByTestId('sidebar').should('contain', 'Menu')
     })
 
     it('devrait masquer le header sidebar après collapse', () => {
       cy.getByTestId('hamburger-btn').click()
-      cy.getByTestId('sidebar').should('not.contain', 'Navigation')
+      cy.get('.sidebar-header-label').should('not.exist')
     })
   })
 
@@ -92,8 +92,19 @@ describe('Toolbar', () => {
     it('devrait conserver le dark mode lors de la navigation', () => {
       cy.toggleDarkMode()
       cy.get('html').should('have.class', 'dark-mode')
-      cy.clickTab('donnees-financieres')
+      cy.clickSidebarItem('deblocage')
       cy.get('html').should('have.class', 'dark-mode')
+    })
+  })
+
+  // ═══════════════════════════════════
+  // Toolbar en consultation
+  // ═══════════════════════════════════
+  describe('Toolbar en consultation', () => {
+    it('devrait rester visible en consultation', () => {
+      cy.visitConsultation('DOSS-2024-001')
+      cy.getByTestId('toolbar').should('be.visible')
+      cy.getByTestId('toolbar').should('contain', 'Template')
     })
   })
 })

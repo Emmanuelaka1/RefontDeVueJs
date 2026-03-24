@@ -1,6 +1,6 @@
 describe('Sidebar - Navigation entre sections', () => {
   beforeEach(() => {
-    cy.visit('/')
+    cy.visit('/recherche')
   })
 
   // ═══════════════════════════════════
@@ -27,9 +27,9 @@ describe('Sidebar - Navigation entre sections', () => {
       cy.getByTestId('deblocage-view').should('contain', 'Déblocage')
     })
 
-    it('devrait désactiver "Consultation" quand "Déblocage" est actif', () => {
+    it('devrait désactiver "Recherche" quand "Déblocage" est actif', () => {
       cy.clickSidebarItem('deblocage')
-      cy.getByTestId('sidebar-item-consultation').should('not.have.class', 'active')
+      cy.getByTestId('sidebar-item-recherche').should('not.have.class', 'active')
     })
   })
 
@@ -59,37 +59,47 @@ describe('Sidebar - Navigation entre sections', () => {
   })
 
   // ═══════════════════════════════════
-  // Retour à Consultation
+  // Retour à Recherche
   // ═══════════════════════════════════
-  describe('Retour à Consultation', () => {
-    it('devrait revenir à /consultation après Déblocage', () => {
+  describe('Retour à Recherche', () => {
+    it('devrait revenir à /recherche depuis Déblocage', () => {
       cy.clickSidebarItem('deblocage')
-      cy.clickSidebarItem('consultation')
-      cy.url().should('include', '/consultation')
+      cy.clickSidebarItem('recherche')
+      cy.url().should('include', '/recherche')
     })
 
-    it('devrait ré-afficher la vue Consultation après retour', () => {
+    it('devrait ré-afficher la vue Recherche après retour', () => {
       cy.clickSidebarItem('deblocage')
-      cy.clickSidebarItem('consultation')
-      cy.getByTestId('consultation-view').should('be.visible')
+      cy.clickSidebarItem('recherche')
+      cy.getByTestId('recherche-view').should('be.visible')
     })
 
-    it('devrait ré-afficher les sections de consultation', () => {
+    it('devrait rediriger vers /recherche au clic sur Consultation sans dossier courant', () => {
+      cy.clickSidebarItem('consultation')
+      cy.url().should('include', '/recherche')
+    })
+
+    it('devrait conserver le layout (toolbar + sidebar) sur toutes les pages', () => {
+      cy.clickSidebarItem('deblocage')
+      cy.getByTestId('toolbar').should('be.visible')
+      cy.getByTestId('sidebar').should('be.visible')
+
       cy.clickSidebarItem('rbt-anticipes')
-      cy.clickSidebarItem('consultation')
+      cy.getByTestId('toolbar').should('be.visible')
+      cy.getByTestId('sidebar').should('be.visible')
+    })
+  })
+
+  // ═══════════════════════════════════
+  // Navigation Consultation via recherche
+  // ═══════════════════════════════════
+  describe('Navigation Consultation via recherche', () => {
+    it('devrait accéder à la consultation après recherche', () => {
+      cy.visitConsultation('DOSS-2024-001')
+      cy.getByTestId('consultation-view').should('be.visible')
       cy.getByTestId('section-general').should('be.visible')
       cy.getByTestId('section-pret').should('be.visible')
       cy.getByTestId('section-dates').should('be.visible')
-    })
-
-    it('devrait conserver le layout (toolbar + tabs) sur toutes les pages', () => {
-      cy.clickSidebarItem('deblocage')
-      cy.getByTestId('toolbar').should('be.visible')
-      cy.getByTestId('tabs-nav').should('be.visible')
-
-      cy.clickSidebarItem('rbt-anticipes')
-      cy.getByTestId('toolbar').should('be.visible')
-      cy.getByTestId('tabs-nav').should('be.visible')
     })
   })
 
@@ -106,6 +116,7 @@ describe('Sidebar - Navigation entre sections', () => {
     })
 
     it('devrait garder les icônes des items visibles', () => {
+      cy.getByTestId('sidebar-item-recherche').should('be.visible')
       cy.getByTestId('sidebar-item-consultation').should('be.visible')
       cy.getByTestId('sidebar-item-deblocage').should('be.visible')
       cy.getByTestId('sidebar-item-rbt-anticipes').should('be.visible')

@@ -12,6 +12,7 @@
     "test:unit:coverage": "vitest run --coverage",
     "test:e2e": "cypress run",
     "test:e2e:open": "cypress open",
+    "cypress:ci": "node scripts/cypress-ci.mjs",
     "lint": "eslint src --ext .vue,.ts,.tsx --fix",
     "type-check": "vue-tsc --noEmit",
     "api:generate": "openapi-typescript openapi/sigac-prets.yaml -o src/types/api.d.ts",

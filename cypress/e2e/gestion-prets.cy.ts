@@ -1,12 +1,12 @@
 describe('Gestion des Prêts - Interface principale', () => {
-  beforeEach(() => {
-    cy.visit('/')
-  })
-
   // ═══════════════════════════════════
-  // Layout général
+  // Layout général (depuis la recherche)
   // ═══════════════════════════════════
   describe('Layout général', () => {
+    beforeEach(() => {
+      cy.visit('/recherche')
+    })
+
     it('devrait afficher le layout principal', () => {
       cy.getByTestId('main-layout').should('be.visible')
     })
@@ -19,16 +19,17 @@ describe('Gestion des Prêts - Interface principale', () => {
       cy.getByTestId('sidebar').should('be.visible')
     })
 
-    it('devrait afficher les onglets de navigation', () => {
-      cy.getByTestId('tabs-nav').should('be.visible')
-    })
-
     it('devrait afficher la zone de contenu', () => {
       cy.getByTestId('content-area').should('be.visible')
     })
 
-    it('devrait rediriger vers /consultation/donnees-generales par défaut', () => {
-      cy.url().should('include', '/consultation/donnees-generales')
+    it('devrait rediriger / vers /recherche', () => {
+      cy.visit('/')
+      cy.url().should('include', '/recherche')
+    })
+
+    it('devrait afficher la vue Recherche par défaut', () => {
+      cy.getByTestId('recherche-view').should('be.visible')
     })
   })
 
@@ -36,44 +37,51 @@ describe('Gestion des Prêts - Interface principale', () => {
   // Sidebar
   // ═══════════════════════════════════
   describe('Sidebar', () => {
-    it('devrait avoir "Consultation" comme item actif par défaut', () => {
-      cy.getByTestId('sidebar-item-consultation').should('have.class', 'active')
+    beforeEach(() => {
+      cy.visit('/recherche')
     })
 
-    it('devrait afficher les 3 items de navigation', () => {
+    it('devrait avoir "Recherche" comme section active sur /recherche', () => {
+      cy.getByTestId('sidebar-item-recherche').should('have.class', 'active')
+    })
+
+    it('devrait afficher les 4 items de navigation', () => {
+      cy.getByTestId('sidebar-item-recherche').should('be.visible')
       cy.getByTestId('sidebar-item-consultation').should('be.visible')
       cy.getByTestId('sidebar-item-deblocage').should('be.visible')
       cy.getByTestId('sidebar-item-rbt-anticipes').should('be.visible')
     })
 
-    it('devrait afficher le libellé "Consultation"', () => {
+    it('devrait afficher les libellés', () => {
+      cy.getByTestId('sidebar-item-recherche').should('contain', 'Recherche')
       cy.getByTestId('sidebar-item-consultation').should('contain', 'Consultation')
-    })
-
-    it('devrait afficher le libellé "Déblocage"', () => {
       cy.getByTestId('sidebar-item-deblocage').should('contain', 'Déblocage')
-    })
-
-    it('devrait afficher le libellé "Rbt anticipés"', () => {
       cy.getByTestId('sidebar-item-rbt-anticipes').should('contain', 'Rbt anticipés')
     })
 
-    it("devrait changer l'item actif au clic", () => {
+    it("devrait changer l'item actif au clic sur Déblocage", () => {
       cy.clickSidebarItem('deblocage')
       cy.getByTestId('sidebar-item-deblocage').should('have.class', 'active')
     })
 
-    it('devrait remettre "Consultation" actif au retour', () => {
-      cy.clickSidebarItem('deblocage')
+    it('devrait rediriger vers /recherche au clic sur Consultation sans dossier courant', () => {
       cy.clickSidebarItem('consultation')
-      cy.getByTestId('sidebar-item-consultation').should('have.class', 'active')
+      cy.url().should('include', '/recherche')
     })
   })
 
   // ═══════════════════════════════════
-  // Onglets
+  // Onglets (en consultation)
   // ═══════════════════════════════════
   describe('Onglets de navigation', () => {
+    beforeEach(() => {
+      cy.visitConsultation('DOSS-2024-001')
+    })
+
+    it('devrait afficher les onglets en consultation', () => {
+      cy.getByTestId('tabs-nav').should('be.visible')
+    })
+
     it('devrait avoir "Données générales" comme onglet actif par défaut', () => {
       cy.getByTestId('tab-donnees-generales').should('have.class', 'active')
     })
@@ -87,26 +95,26 @@ describe('Gestion des Prêts - Interface principale', () => {
 
     it('devrait naviguer vers "Données financières" au clic', () => {
       cy.clickTab('donnees-financieres')
-      cy.url().should('include', '/consultation/donnees-financieres')
+      cy.url().should('include', '/donnees-financieres')
       cy.getByTestId('tab-donnees-financieres').should('have.class', 'active')
     })
 
     it('devrait naviguer vers "Paliers" au clic', () => {
       cy.clickTab('paliers')
-      cy.url().should('include', '/consultation/paliers')
+      cy.url().should('include', '/paliers')
       cy.getByTestId('tab-paliers').should('have.class', 'active')
     })
 
     it('devrait naviguer vers "Domiciliation" au clic', () => {
       cy.clickTab('domiciliation')
-      cy.url().should('include', '/consultation/domiciliation')
+      cy.url().should('include', '/domiciliation')
       cy.getByTestId('tab-domiciliation').should('have.class', 'active')
     })
 
     it('devrait revenir à "Données générales" au clic', () => {
       cy.clickTab('donnees-financieres')
       cy.clickTab('donnees-generales')
-      cy.url().should('include', '/consultation/donnees-generales')
+      cy.url().should('include', '/donnees-generales')
       cy.getByTestId('tab-donnees-generales').should('have.class', 'active')
     })
   })
@@ -115,6 +123,10 @@ describe('Gestion des Prêts - Interface principale', () => {
   // Vue Consultation - Sections
   // ═══════════════════════════════════
   describe('Vue Consultation - Sections dépliables', () => {
+    beforeEach(() => {
+      cy.visitConsultation('DOSS-2024-001')
+    })
+
     it('devrait afficher la vue de consultation', () => {
       cy.getByTestId('consultation-view').should('be.visible')
     })
@@ -162,6 +174,10 @@ describe('Gestion des Prêts - Interface principale', () => {
   // Formulaire - Données Générales
   // ═══════════════════════════════════
   describe('Formulaire - Données Générales', () => {
+    beforeEach(() => {
+      cy.visitConsultation('DOSS-2024-001')
+    })
+
     it('devrait afficher les champs de la colonne gauche', () => {
       const labels = [
         'Emprunteur',
@@ -181,12 +197,21 @@ describe('Gestion des Prêts - Interface principale', () => {
         cy.getByTestId('section-body-general').should('contain', label)
       })
     })
+
+    it('devrait afficher les valeurs du dossier MARTIN', () => {
+      cy.getByTestId('field-emprunteur').should('contain', 'MARTIN Jean-Pierre')
+      cy.getByTestId('field-co-emprunteur').should('contain', 'MARTIN Catherine')
+    })
   })
 
   // ═══════════════════════════════════
   // Formulaire - Données Prêt
   // ═══════════════════════════════════
   describe('Formulaire - Données Prêt', () => {
+    beforeEach(() => {
+      cy.visitConsultation('DOSS-2024-001')
+    })
+
     it('devrait afficher les champs financiers principaux', () => {
       const labels = [
         'Montant prêt',
@@ -203,12 +228,22 @@ describe('Gestion des Prêts - Interface principale', () => {
         cy.getByTestId('section-body-pret').should('contain', label)
       })
     })
+
+    it('devrait afficher les valeurs financières du dossier', () => {
+      cy.getByTestId('section-body-pret').should('contain', '250 000,00 €')
+      cy.getByTestId('section-body-pret').should('contain', '240 mois')
+      cy.getByTestId('section-body-pret').should('contain', '3,45 %')
+    })
   })
 
   // ═══════════════════════════════════
   // Formulaire - Dates
   // ═══════════════════════════════════
   describe('Formulaire - Dates', () => {
+    beforeEach(() => {
+      cy.visitConsultation('DOSS-2024-001')
+    })
+
     it('devrait afficher les dates principales', () => {
       const labels = [
         "Date d'acceptation",
@@ -229,17 +264,25 @@ describe('Gestion des Prêts - Interface principale', () => {
   // Titre de page (router guard)
   // ═══════════════════════════════════
   describe('Titre de page', () => {
-    it('devrait contenir "Données générales" et "SIGAC" dans le titre', () => {
-      cy.title().should('include', 'Données générales')
+    it('devrait contenir "Recherche" et "SIGAC" sur la page d\'accueil', () => {
+      cy.visit('/recherche')
+      cy.title().should('include', 'Recherche')
       cy.title().should('include', 'SIGAC')
     })
 
+    it('devrait contenir "Données générales" en consultation', () => {
+      cy.visitConsultation('DOSS-2024-001')
+      cy.title().should('include', 'Données générales')
+    })
+
     it('devrait mettre à jour le titre lors de la navigation vers "Données financières"', () => {
+      cy.visitConsultation('DOSS-2024-001')
       cy.clickTab('donnees-financieres')
       cy.title().should('include', 'Données financières')
     })
 
     it('devrait mettre à jour le titre vers "Paliers"', () => {
+      cy.visitConsultation('DOSS-2024-001')
       cy.clickTab('paliers')
       cy.title().should('include', 'Paliers')
     })
@@ -250,6 +293,8 @@ describe('Gestion des Prêts - Interface principale', () => {
   // ═══════════════════════════════════
   describe('Parcours de navigation complet', () => {
     it('devrait permettre de parcourir tous les onglets et revenir', () => {
+      cy.visitConsultation('DOSS-2024-001')
+
       cy.clickTab('donnees-financieres')
       cy.getByTestId('donnees-financieres-view').should('be.visible')
 

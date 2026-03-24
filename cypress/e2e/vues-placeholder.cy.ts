@@ -4,7 +4,7 @@ describe('Vues Placeholder', () => {
   // ═══════════════════════════════════
   describe('Onglet Données Financières', () => {
     beforeEach(() => {
-      cy.visit('/consultation/donnees-financieres')
+      cy.visitConsultation('DOSS-2024-001', 'donnees-financieres')
     })
 
     it('devrait afficher la vue "Données financières"', () => {
@@ -39,7 +39,7 @@ describe('Vues Placeholder', () => {
   // ═══════════════════════════════════
   describe('Onglet Paliers', () => {
     beforeEach(() => {
-      cy.visit('/consultation/paliers')
+      cy.visitConsultation('DOSS-2024-001', 'paliers')
     })
 
     it('devrait afficher la vue "Paliers"', () => {
@@ -68,7 +68,7 @@ describe('Vues Placeholder', () => {
   // ═══════════════════════════════════
   describe('Onglet Domiciliation', () => {
     beforeEach(() => {
-      cy.visit('/consultation/domiciliation')
+      cy.visitConsultation('DOSS-2024-001', 'domiciliation')
     })
 
     it('devrait afficher la vue "Domiciliation"', () => {
@@ -156,20 +156,25 @@ describe('Vues Placeholder', () => {
   // Routage
   // ═══════════════════════════════════
   describe('Routage', () => {
-    it('devrait rediriger une route inconnue vers la page d\'accueil', () => {
+    it('devrait rediriger une route inconnue vers /recherche', () => {
       cy.visit('/route-inexistante')
-      cy.url().should('include', '/consultation/donnees-generales')
-      cy.getByTestId('consultation-view').should('be.visible')
+      cy.url().should('include', '/recherche')
+      cy.getByTestId('recherche-view').should('be.visible')
     })
 
-    it('devrait rediriger /consultation vers /consultation/donnees-generales', () => {
+    it('devrait rediriger /consultation (sans ID) vers /recherche', () => {
       cy.visit('/consultation')
-      cy.url().should('include', '/consultation/donnees-generales')
+      cy.url().should('include', '/recherche')
     })
 
-    it('devrait rediriger la racine / vers /consultation/donnees-generales', () => {
+    it('devrait rediriger la racine / vers /recherche', () => {
       cy.visit('/')
-      cy.url().should('include', '/consultation/donnees-generales')
+      cy.url().should('include', '/recherche')
+    })
+
+    it('devrait rediriger /consultation/:id vers /consultation/:id/donnees-generales', () => {
+      cy.visit('/consultation/DOSS-2024-001')
+      cy.url().should('include', '/consultation/DOSS-2024-001/donnees-generales')
     })
   })
 })

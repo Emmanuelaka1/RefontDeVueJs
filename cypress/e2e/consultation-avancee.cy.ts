@@ -1,6 +1,6 @@
 describe('Vue Consultation - Fonctionnalités avancées', () => {
   beforeEach(() => {
-    cy.visit('/consultation/donnees-generales')
+    cy.visitConsultation('DOSS-2024-001')
   })
 
   // ═══════════════════════════════════
@@ -11,8 +11,12 @@ describe('Vue Consultation - Fonctionnalités avancées', () => {
       cy.getByTestId('consultation-view').should('contain', 'Consultation du dossier')
     })
 
-    it('devrait afficher le badge "Dossier en cours"', () => {
-      cy.getByTestId('consultation-view').should('contain', 'Dossier en cours')
+    it('devrait afficher le badge de statut', () => {
+      cy.get('.badge-status').should('be.visible')
+    })
+
+    it('devrait afficher le bouton "Retour recherche"', () => {
+      cy.contains('button', 'Retour recherche').should('be.visible')
     })
 
     it('devrait afficher le bouton "Tout ouvrir"', () => {
@@ -21,6 +25,12 @@ describe('Vue Consultation - Fonctionnalités avancées', () => {
 
     it('devrait afficher le bouton "Tout fermer"', () => {
       cy.contains('button', 'Tout fermer').should('be.visible')
+    })
+
+    it('devrait naviguer vers /recherche au clic sur "Retour recherche"', () => {
+      cy.contains('button', 'Retour recherche').click()
+      cy.url().should('include', '/recherche')
+      cy.getByTestId('recherche-view').should('be.visible')
     })
   })
 
@@ -140,6 +150,42 @@ describe('Vue Consultation - Fonctionnalités avancées', () => {
     it('devrait masquer les champs quand la section est fermée', () => {
       cy.toggleSection('general')
       cy.getByTestId('field-emprunteur').should('not.be.visible')
+    })
+  })
+
+  // ═══════════════════════════════════
+  // Toggle indépendant des sections
+  // ═══════════════════════════════════
+  describe('Toggle indépendant des sections', () => {
+    it('devrait fermer "Données Générales" sans affecter les autres', () => {
+      cy.toggleSection('general')
+      cy.getByTestId('section-body-general').should('not.be.visible')
+      cy.getByTestId('section-body-pret').should('be.visible')
+      cy.getByTestId('section-body-dates').should('be.visible')
+    })
+
+    it('devrait fermer "Données Prêt" sans affecter les autres', () => {
+      cy.toggleSection('pret')
+      cy.getByTestId('section-body-pret').should('not.be.visible')
+      cy.getByTestId('section-body-general').should('be.visible')
+      cy.getByTestId('section-body-dates').should('be.visible')
+    })
+
+    it('devrait fermer "Dates" sans affecter les autres', () => {
+      cy.toggleSection('dates')
+      cy.getByTestId('section-body-dates').should('not.be.visible')
+      cy.getByTestId('section-body-general').should('be.visible')
+      cy.getByTestId('section-body-pret').should('be.visible')
+    })
+
+    it('devrait permettre de fermer toutes les sections individuellement', () => {
+      cy.toggleSection('general')
+      cy.toggleSection('pret')
+      cy.toggleSection('dates')
+
+      cy.getByTestId('section-body-general').should('not.be.visible')
+      cy.getByTestId('section-body-pret').should('not.be.visible')
+      cy.getByTestId('section-body-dates').should('not.be.visible')
     })
   })
 })

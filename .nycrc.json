@@ -6,10 +6,16 @@
     "**/*.d.ts",
     "src/types/**",
     "src/main.ts",
+    "src/api/generated/**",
     "src/services/pretService.http.ts",
     "src/components/FormField.vue",
     "src/components/SectionDates.vue",
     "src/components/SectionDonneesGenerales.vue",
     "src/components/SectionDonneesPret.vue"
-  ]
+  ],
+  "check-coverage": true,
+  "statements": 90,
+  "branches": 90,
+  "functions": 90,
+  "lines": 90
 }
